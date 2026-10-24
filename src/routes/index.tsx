@@ -176,6 +176,7 @@ function Index() {
             </button>
           </div>
         </form>
+        )}
       </main>
     </div>
   );
