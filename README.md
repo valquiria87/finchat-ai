@@ -126,7 +126,10 @@ Nenhuma credencial ou variável de ambiente é necessária para rodar a demonstr
 
 ## Próximos passos
 
-1. Consultar a documentação do Pluggy por meio do MCP.
-2. Ativar login e banco de dados para guardar com segurança o token de acesso e o cursor de sincronização.
-3. Implementar no servidor as chamadas ao Plaid Sandbox (criação do Link token, troca do public token, consulta de contas e `/transactions/sync`), usando os módulos de preparação.
-4. Substituir os dados fictícios de `answer()` por dados reais, mantendo as mesmas regras de negócio.
+1. Consultar a documentação do Pluggy por meio do MCP. O MCP do Pluggy é usado apenas para pesquisar a documentação do Pluggy; ele não serve para acessar dados bancários do Plaid.
+2. Usar o Plaid Sandbox como fonte dos dados financeiros fictícios da futura integração. É o ambiente de testes do Plaid, com contas e transações simuladas, e não contém dados de contas reais.
+3. Ativar login e banco de dados para guardar com segurança o token de acesso e o cursor de sincronização.
+4. Implementar no servidor as chamadas ao Plaid Sandbox (criação do Link token, troca do public token, consulta de contas e `/transactions/sync`), usando os módulos de preparação.
+5. Substituir os dados fictícios de `answer()` por dados reais, mantendo as mesmas regras de negócio.
+
+> A integração com o Plaid ainda não está pronta: depende de implementar autenticação, armazenamento seguro de tokens e chamadas de servidor.
