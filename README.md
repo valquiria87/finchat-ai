@@ -82,6 +82,12 @@ Quando a pergunta não se encaixa em nenhuma intenção, o assistente informa qu
 
 > **A integração real com o Plaid não foi implementada.** O app não faz nenhuma chamada ao Plaid, não pede credenciais e usa apenas dados fictícios.
 
+Ainda não estão implementados:
+
+- Autenticação de usuário (login) e banco de dados.
+- Armazenamento seguro do `access_token` do Plaid.
+- Sincronização real com o Plaid (criação do Link token, troca do public token, consulta de contas e `/transactions/sync`).
+
 Foram criados apenas módulos de preparação, que ainda não são usados pela tela do chat:
 
 | Arquivo | Conteúdo |
@@ -96,7 +102,7 @@ Credenciais nunca devem ir para o frontend nem para variáveis `VITE_*`.
 
 ## Testes
 
-Os testes usam Vitest. Na última execução, **32 testes foram aprovados** em 3 arquivos:
+Os testes usam Vitest. Na última execução, **32 testes foram aprovados** em 3 arquivos e a checagem de tipos não apresentou erros:
 
 | Arquivo | Testes | Cobertura |
 |---|---|---|
