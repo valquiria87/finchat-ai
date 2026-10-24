@@ -35,9 +35,11 @@ export function formatUSD(value: number): string {
   return "US$ " + value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/** Soma apenas dinheiro disponível em contas — nunca inclui dívidas nem limite de crédito. */
+const isBank = (a: DemoAccount) => a.type === "checking" || a.type === "savings";
+
+/** Soma apenas o saldo disponível de contas bancárias (corrente/poupança). Nunca inclui cartões, empréstimos ou limites. */
 export function totalAvailableCash(accounts: DemoAccount[]): number {
-  return accounts.filter((a) => a.type !== "credit").reduce((s, a) => s + (a.available ?? 0), 0);
+  return accounts.filter((a) => isBank(a) && a.available != null).reduce((s, a) => s + (a.available as number), 0);
 }
 
 export function totalCardDebt(accounts: DemoAccount[]): number {
@@ -57,67 +59,97 @@ function norm(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-export function answer(question: string, accounts: DemoAccount[] = DEMO_ACCOUNTS): string {
-  const q = norm(question);
-  const cash = accounts.filter((a) => a.type !== "credit");
-  const cards = accounts.filter((a) => a.type === "credit");
+export type Intent = "card_purchase" | "cash" | "card_debt" | "card_limit" | "transactions" | "categories" | "accounts" | "unknown";
 
-  if (/cartao|cartoes|credito|limite|fatura/.test(q)) {
-    const lines = cards.map(
-      (a) =>
-        `- **${a.name}**: dívida atual ${formatUSD(a.debt ?? 0)}; limite total não informado; crédito disponível ${a.availableCredit != null ? formatUSD(a.availableCredit) : "não informado"}`,
-    );
-    return (
-      "Sim, um cartão de crédito permite fazer compras usando o **crédito disponível** — mas isso é um empréstimo do emissor, não dinheiro seu na conta. Cada compra aumenta a dívida do cartão.\n\n" +
-      "Vale diferenciar:\n\n" +
-      "- **Dívida atual**: quanto você já deve ao cartão.\n" +
-      "- **Limite total**: o valor máximo de crédito concedido.\n" +
-      "- **Crédito disponível**: quanto ainda pode ser usado em compras.\n\n" +
-      `Nos dados de demonstração:\n\n${lines.join("\n")}\n\n` +
-      "Para o Plaid Credit Card, o crédito disponível não foi informado, então não é possível confirmar se há crédito para uma compra. " +
-      `Seu dinheiro próprio disponível nas contas de exemplo é ${formatUSD(totalAvailableCash(accounts))}, separado do crédito dos cartões.` +
-      DEMO_NOTE
-    );
+const CARD = /cartao|cartoes|credito/;
+
+/** Identifica a intenção. A ordem importa: perguntas mais específicas vêm antes. */
+export function detectIntent(question: string): Intent {
+  const q = norm(question);
+  if (CARD.test(q) && /\b(usar|uso|pagar|comprar|compra|compras)\b/.test(q)) return "card_purchase";
+  if (/dinheiro|saldo|quanto tenho/.test(q)) return "cash";
+  if (/divida|devo|devendo|fatura/.test(q)) return "card_debt";
+  if (/limite|credito disponivel/.test(q)) return "card_limit";
+  if (/transac|movimenta|extrato|compra/.test(q)) return "transactions";
+  if (/categoria|gastei|gasto/.test(q)) return "categories";
+  if (/conta|cartao|cartoes|credito/.test(q)) return "accounts";
+  return "unknown";
+}
+
+const fmtOpt = (v: number | undefined) => (v != null ? formatUSD(v) : "não informado");
+
+export function answer(question: string, accounts: DemoAccount[] = DEMO_ACCOUNTS): string {
+  const bank = accounts.filter(isBank);
+  const cards = accounts.filter((a) => a.type === "credit");
+  const cash = formatUSD(totalAvailableCash(accounts));
+
+  switch (detectIntent(question)) {
+    case "card_purchase": {
+      const lines = cards.map(
+        (a) => `- **${a.name}**: dívida atual ${fmtOpt(a.debt)}; limite total não informado; crédito disponível ${fmtOpt(a.availableCredit)}`,
+      );
+      return (
+        "Sim, um cartão de crédito permite fazer compras usando o **crédito disponível** — mas isso é um empréstimo do emissor, não dinheiro seu na conta. Cada compra aumenta a dívida do cartão.\n\n" +
+        "Vale diferenciar:\n\n" +
+        "- **Dívida atual**: quanto você já deve ao cartão.\n" +
+        "- **Limite total**: o valor máximo de crédito concedido.\n" +
+        "- **Crédito disponível**: quanto ainda pode ser usado em compras.\n\n" +
+        `Nos dados de demonstração:\n\n${lines.join("\n")}\n\n` +
+        "Para o Plaid Credit Card, o crédito disponível não foi informado, então não é possível confirmar se há crédito para uma compra. " +
+        `Seu dinheiro próprio disponível nas contas de exemplo é ${cash}, separado do crédito dos cartões.` +
+        DEMO_NOTE
+      );
+    }
+    case "cash": {
+      const lines = bank.map((a) => `- **${a.name}**: disponível ${fmtOpt(a.available)} (saldo da conta ${fmtOpt(a.balance)})`);
+      return (
+        `Seu dinheiro disponível nas contas bancárias de exemplo é **${cash}**:\n\n${lines.join("\n")}\n\n` +
+        "Esse total soma apenas o saldo disponível das contas corrente e poupança. Não entram dívidas de cartão, limites ou crédito disponível dos cartões, nem empréstimos — crédito não é dinheiro seu." +
+        DEMO_NOTE
+      );
+    }
+    case "card_debt": {
+      const lines = cards.map((a) => `- **${a.name}**: dívida atual ${fmtOpt(a.debt)}`);
+      return (
+        `A dívida atual dos cartões de exemplo soma **${formatUSD(totalCardDebt(accounts))}**:\n\n${lines.join("\n")}\n\n` +
+        "Esse valor é o que se deve aos emissores e não é descontado nem somado ao seu dinheiro disponível." +
+        DEMO_NOTE
+      );
+    }
+    case "card_limit": {
+      const lines = cards.map((a) => `- **${a.name}**: limite total não informado; crédito disponível ${fmtOpt(a.availableCredit)}`);
+      return (
+        "O **limite total** é o máximo de crédito concedido; o **crédito disponível** é quanto ainda pode ser usado.\n\n" +
+        `Nos dados de demonstração:\n\n${lines.join("\n")}\n\n` +
+        "O limite total não está nos dados, e o crédito disponível do Plaid Credit Card não foi informado, então não é possível calculá-los." +
+        DEMO_NOTE
+      );
+    }
+    case "transactions":
+      return (
+        "Não há transações disponíveis nos dados de demonstração, então não consigo listar suas últimas movimentações. " +
+        "Posso mostrar suas contas ou seu saldo disponível — experimente perguntar “Qual é meu saldo disponível?”." +
+        DEMO_NOTE
+      );
+    case "categories":
+      return (
+        "Os dados de demonstração não incluem transações nem categorias de gastos, por isso não é possível calcular quanto você gastou por categoria. " +
+        "Você pode perguntar “Quais são minhas contas?” para ver as contas de exemplo." +
+        DEMO_NOTE
+      );
+    case "accounts": {
+      const lines = accounts.map((a) =>
+        a.type === "credit"
+          ? `- **${a.name}** (cartão de crédito): dívida ${fmtOpt(a.debt)}; crédito disponível ${fmtOpt(a.availableCredit)}`
+          : `- **${a.name}** (${a.type === "checking" ? "conta corrente" : "poupança"}): saldo ${fmtOpt(a.balance)}; disponível ${fmtOpt(a.available)}`,
+      );
+      return `Estas são as contas de exemplo desta demonstração (não representam todas as suas contas):\n\n${lines.join("\n")}` + DEMO_NOTE;
+    }
+    default:
+      return (
+        "Não consigo responder a essa pergunta com os dados de demonstração disponíveis. " +
+        "Tente algo como “Quais são minhas contas?” ou “Qual é meu saldo disponível?”." +
+        DEMO_NOTE
+      );
   }
-  if (/transac|movimenta|extrato|compra/.test(q)) {
-    return (
-      "Não há transações disponíveis nos dados de demonstração, então não consigo listar suas últimas movimentações. " +
-      "Posso mostrar suas contas ou seu saldo disponível — experimente perguntar “Qual é meu saldo disponível?”." +
-      DEMO_NOTE
-    );
-  }
-  if (/categoria|gastei|gasto/.test(q)) {
-    return (
-      "Os dados de demonstração não incluem transações nem categorias de gastos, por isso não é possível calcular quanto você gastou por categoria. " +
-      "Você pode perguntar “Quais são minhas contas?” para ver as contas de exemplo." +
-      DEMO_NOTE
-    );
-  }
-  if (/saldo|disponivel|dinheiro|quanto tenho/.test(q)) {
-    const lines = cash.map((a) => `- **${a.name}**: disponível ${formatUSD(a.available ?? 0)} (saldo da conta ${formatUSD(a.balance ?? 0)})`);
-    const cardLines = cards.map(
-      (a) =>
-        `- **${a.name}**: dívida ${formatUSD(a.debt ?? 0)}; crédito disponível ${a.availableCredit != null ? formatUSD(a.availableCredit) : "não informado"}`,
-    );
-    return (
-      `Seu dinheiro disponível nas contas de exemplo é **${formatUSD(totalAvailableCash(accounts))}**:\n\n${lines.join("\n")}\n\n` +
-      `Os cartões não entram nesse total — dívida não é dinheiro disponível, e limite de crédito também não:\n\n${cardLines.join("\n")}` +
-      DEMO_NOTE
-    );
-  }
-  if (/conta|cartao|cartoes/.test(q)) {
-    const lines = accounts.map((a) =>
-      a.type === "credit"
-        ? `- **${a.name}** (cartão de crédito): dívida ${formatUSD(a.debt ?? 0)}; crédito disponível ${a.availableCredit != null ? formatUSD(a.availableCredit) : "não informado"}`
-        : `- **${a.name}** (${a.type === "checking" ? "conta corrente" : "poupança"}): saldo ${formatUSD(a.balance ?? 0)}; disponível ${formatUSD(a.available ?? 0)}`,
-    );
-    return (
-      `Estas são as contas de exemplo desta demonstração (não representam todas as suas contas):\n\n${lines.join("\n")}` + DEMO_NOTE
-    );
-  }
-  return (
-    "Não consigo responder a essa pergunta com os dados de demonstração disponíveis. " +
-    "Tente algo como “Quais são minhas contas?” ou “Qual é meu saldo disponível?”." +
-    DEMO_NOTE
-  );
 }
