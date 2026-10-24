@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { History, Landmark, Plus, SendHorizontal, Trash2, X } from "lucide-react";
+import { History, Landmark, LayoutDashboard, MessageSquare, Plus, SendHorizontal, Trash2, X } from "lucide-react";
 import { ChatMessage, type Msg } from "@/components/finchat/ChatMessage";
+import { Dashboard } from "@/components/finchat/Dashboard";
 import { SUGGESTIONS, answer } from "@/lib/finance";
 
 export const Route = createFileRoute("/")({
@@ -28,6 +29,7 @@ function Index() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [view, setView] = useState<"chat" | "dashboard">("chat");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
