@@ -8,7 +8,7 @@ export function Dashboard() {
   const cash = totalAvailableCash(accounts);
   const debt = totalCardDebt(accounts);
   const cats = spendingByCategory(txs);
-  const maxCat = cats.length ? cats[0].total : 0;
+  const maxCat = cats[0]?.total ?? 0;
   const totalSpent = cats.reduce((s, c) => s + c.total, 0);
 
   return (
