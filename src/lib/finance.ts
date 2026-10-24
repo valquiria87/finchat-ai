@@ -67,9 +67,10 @@ const CARD = /cartao|cartoes|credito/;
 export function detectIntent(question: string): Intent {
   const q = norm(question);
   if (CARD.test(q) && /\b(usar|uso|pagar|comprar|compra|compras)\b/.test(q)) return "card_purchase";
+  if (/credito disponivel/.test(q)) return "card_limit";
   if (/dinheiro|saldo|quanto tenho/.test(q)) return "cash";
   if (/divida|devo|devendo|fatura/.test(q)) return "card_debt";
-  if (/limite|credito disponivel/.test(q)) return "card_limit";
+  if (/limite/.test(q)) return "card_limit";
   if (/transac|movimenta|extrato|compra/.test(q)) return "transactions";
   if (/categoria|gastei|gasto/.test(q)) return "categories";
   if (/conta|cartao|cartoes|credito/.test(q)) return "accounts";
