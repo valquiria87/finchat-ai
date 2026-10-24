@@ -23,6 +23,14 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   { id: "bcc", name: "Plaid Business Credit Card", type: "credit", currency: "USD", debt: 5020, availableCredit: 4980 },
 ];
 
+/** Origem dos dados do chat. Hoje só existe a demonstração; uma fonte real futura implementa a mesma interface. */
+export interface FinanceDataProvider {
+  mode: "demo";
+  getAccounts(): DemoAccount[];
+}
+
+export const demoProvider: FinanceDataProvider = { mode: "demo", getAccounts: () => DEMO_ACCOUNTS };
+
 export function formatUSD(value: number): string {
   return "US$ " + value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
