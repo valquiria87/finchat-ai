@@ -54,6 +54,23 @@ export function answer(question: string, accounts: DemoAccount[] = DEMO_ACCOUNTS
   const cash = accounts.filter((a) => a.type !== "credit");
   const cards = accounts.filter((a) => a.type === "credit");
 
+  if (/cartao|cartoes|credito|limite|fatura/.test(q)) {
+    const lines = cards.map(
+      (a) =>
+        `- **${a.name}**: dívida atual ${formatUSD(a.debt ?? 0)}; limite total não informado; crédito disponível ${a.availableCredit != null ? formatUSD(a.availableCredit) : "não informado"}`,
+    );
+    return (
+      "Sim, um cartão de crédito permite fazer compras usando o **crédito disponível** — mas isso é um empréstimo do emissor, não dinheiro seu na conta. Cada compra aumenta a dívida do cartão.\n\n" +
+      "Vale diferenciar:\n\n" +
+      "- **Dívida atual**: quanto você já deve ao cartão.\n" +
+      "- **Limite total**: o valor máximo de crédito concedido.\n" +
+      "- **Crédito disponível**: quanto ainda pode ser usado em compras.\n\n" +
+      `Nos dados de demonstração:\n\n${lines.join("\n")}\n\n` +
+      "Para o Plaid Credit Card, o crédito disponível não foi informado, então não é possível confirmar se há crédito para uma compra. " +
+      `Seu dinheiro próprio disponível nas contas de exemplo é ${formatUSD(totalAvailableCash(accounts))}, separado do crédito dos cartões.` +
+      DEMO_NOTE
+    );
+  }
   if (/transac|movimenta|extrato|compra/.test(q)) {
     return (
       "Não há transações disponíveis nos dados de demonstração, então não consigo listar suas últimas movimentações. " +
