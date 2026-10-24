@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { History, Landmark, Plus, SendHorizontal, Trash2, X } from "lucide-react";
+import { History, Landmark, LayoutDashboard, MessageSquare, Plus, SendHorizontal, Trash2, X } from "lucide-react";
 import { ChatMessage, type Msg } from "@/components/finchat/ChatMessage";
+import { Dashboard } from "@/components/finchat/Dashboard";
 import { SUGGESTIONS, answer } from "@/lib/finance";
 
 export const Route = createFileRoute("/")({
@@ -28,6 +29,7 @@ function Index() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [view, setView] = useState<"chat" | "dashboard">("chat");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -110,10 +112,25 @@ function Index() {
             <button className="md:hidden" onClick={() => setShowHistory(true)} aria-label="Histórico"><History className="h-5 w-5" /></button>
             <span className="font-display font-semibold md:hidden">FinChat AI</span>
           </div>
-          <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">Demonstração · Dados fictícios</span>
-          <button onClick={newChat} className="md:hidden" aria-label="Nova conversa"><Plus className="h-5 w-5" /></button>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">Demonstração · Dados fictícios</span>
+            <button
+              onClick={() => setView(view === "chat" ? "dashboard" : "chat")}
+              aria-label={view === "chat" ? "Abrir painel" : "Voltar ao chat"}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-semibold transition hover:border-primary"
+            >
+              {view === "chat" ? <LayoutDashboard className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}
+              {view === "chat" ? "Painel" : "Chat"}
+            </button>
+            <button onClick={newChat} className="md:hidden" aria-label="Nova conversa"><Plus className="h-5 w-5" /></button>
+          </div>
         </header>
 
+        {view === "dashboard" ? (
+          <div className="flex-1 overflow-y-auto">
+            <Dashboard />
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
             {messages.length === 0 && (
@@ -140,7 +157,9 @@ function Index() {
             <div ref={endRef} />
           </div>
         </div>
+        )}
 
+        {view === "chat" && (
         <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="border-t border-border bg-card p-3">
           <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-input bg-background p-2 focus-within:ring-2 focus-within:ring-ring">
             <textarea
@@ -157,6 +176,7 @@ function Index() {
             </button>
           </div>
         </form>
+        )}
       </main>
     </div>
   );
