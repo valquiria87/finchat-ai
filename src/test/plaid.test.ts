@@ -54,7 +54,7 @@ describe("paginação de /transactions/sync", () => {
   it("segue next_cursor enquanto has_more e retorna o último cursor", async () => {
     const seen: (string | null)[] = [];
     const pages: Record<string, PlaidSyncPage> = { start: page(["1"], "c1", true), c1: page(["2"], "c2", false) };
-    const r = await syncAllTransactions(async (c) => { seen.push(c); return pages[c ?? "start"]; }, null);
+    const r = await syncAllTransactions(async (c) => { seen.push(c); return pages[c ?? "start"]!; }, null);
     expect(seen).toEqual([null, "c1"]);
     expect(r.added.map((t) => t.transaction_id)).toEqual(["1", "2"]);
     expect(r.nextCursor).toBe("c2");
