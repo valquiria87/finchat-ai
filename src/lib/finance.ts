@@ -23,13 +23,59 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   { id: "bcc", name: "Plaid Business Credit Card", type: "credit", currency: "USD", debt: 5020, availableCredit: 4980 },
 ];
 
+/** Transação fictícia. Mesma convenção de sinais do Plaid (src/lib/plaid): amount > 0 = saída (despesa); amount < 0 = entrada. */
+export interface DemoTransaction {
+  id: string;
+  accountId: string;
+  /** Data ISO (AAAA-MM-DD). */
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+}
+
+export const DEMO_TRANSACTIONS: DemoTransaction[] = [
+  { id: "t1", accountId: "chk", date: "2026-10-01", description: "Salário", amount: -1500, category: "Renda" },
+  { id: "t2", accountId: "cc", date: "2026-10-03", description: "Supermercado Bom Preço", amount: 85.4, category: "Alimentação" },
+  { id: "t3", accountId: "chk", date: "2026-10-05", description: "Conta de luz", amount: 120, category: "Moradia" },
+  { id: "t4", accountId: "cc", date: "2026-10-08", description: "Corrida de aplicativo", amount: 23.9, category: "Transporte" },
+  { id: "t5", accountId: "bcc", date: "2026-10-10", description: "Assinatura de software de gestão", amount: 49, category: "Serviços" },
+  { id: "t6", accountId: "chk", date: "2026-10-14", description: "Restaurante Sabor Caseiro", amount: 62.5, category: "Alimentação" },
+  { id: "t7", accountId: "sav", date: "2026-10-15", description: "Rendimento da poupança", amount: -1.75, category: "Renda" },
+  { id: "t8", accountId: "bcc", date: "2026-10-18", description: "Combustível", amount: 150, category: "Transporte" },
+];
+
+export const isExpense = (t: DemoTransaction) => t.amount > 0;
+
+/** Transações mais recentes primeiro. */
+export function latestTransactions(txs: DemoTransaction[], n = 5): DemoTransaction[] {
+  return [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0, n);
+}
+
+/** Soma apenas despesas (saídas) por categoria, em ordem decrescente. Entradas nunca entram. */
+export function spendingByCategory(txs: DemoTransaction[]): { category: string; total: number }[] {
+  const m = new Map<string, number>();
+  for (const t of txs) if (isExpense(t)) m.set(t.category, Math.round(((m.get(t.category) ?? 0) + t.amount) * 100) / 100);
+  return [...m].map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
+}
+
 /** Origem dos dados do chat. Hoje só existe a demonstração; uma fonte real futura implementa a mesma interface. */
 export interface FinanceDataProvider {
   mode: "demo";
   getAccounts(): DemoAccount[];
+  getTransactions(): DemoTransaction[];
 }
 
-export const demoProvider: FinanceDataProvider = { mode: "demo", getAccounts: () => DEMO_ACCOUNTS };
+export const demoProvider: FinanceDataProvider = {
+  mode: "demo",
+  getAccounts: () => DEMO_ACCOUNTS,
+  getTransactions: () => DEMO_TRANSACTIONS,
+};
+
+function fmtDate(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 export function formatUSD(value: number): string {
   return "US$ " + value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
