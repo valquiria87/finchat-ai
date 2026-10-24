@@ -125,7 +125,7 @@ export function detectIntent(question: string): Intent {
 
 const fmtOpt = (v: number | undefined) => (v != null ? formatUSD(v) : "não informado");
 
-export function answer(question: string, accounts: DemoAccount[] = DEMO_ACCOUNTS): string {
+export function answer(question: string, accounts: DemoAccount[] = DEMO_ACCOUNTS, txs: DemoTransaction[] = DEMO_TRANSACTIONS): string {
   const bank = accounts.filter(isBank);
   const cards = accounts.filter((a) => a.type === "credit");
   const cash = formatUSD(totalAvailableCash(accounts));
@@ -172,18 +172,30 @@ export function answer(question: string, accounts: DemoAccount[] = DEMO_ACCOUNTS
         DEMO_NOTE
       );
     }
-    case "transactions":
+    case "transactions": {
+      if (!txs.length) return "Não há transações disponíveis nos dados de demonstração." + DEMO_NOTE;
+      const names = new Map(accounts.map((a) => [a.id, a.name]));
+      const lines = latestTransactions(txs).map(
+        (t) =>
+          `- ${fmtDate(t.date)} · **${t.description}** · ${isExpense(t) ? "despesa" : "entrada"} ${isExpense(t) ? "−" : "+"}${formatUSD(Math.abs(t.amount))} · ${t.category} · ${names.get(t.accountId) ?? "conta não informada"}`,
+      );
       return (
-        "Não há transações disponíveis nos dados de demonstração, então não consigo listar suas últimas movimentações. " +
-        "Posso mostrar suas contas ou seu saldo disponível — experimente perguntar “Qual é meu saldo disponível?”." +
+        `Estas são as ${lines.length} transações mais recentes dos dados de demonstração:\n\n${lines.join("\n")}\n\n` +
+        "Despesas aparecem com “−” e entradas com “+”. Compras no cartão aumentam a dívida do cartão; não saem do seu saldo bancário." +
         DEMO_NOTE
       );
-    case "categories":
+    }
+    case "categories": {
+      const cats = spendingByCategory(txs);
+      if (!cats.length) return "Não há despesas nos dados de demonstração para calcular gastos por categoria." + DEMO_NOTE;
+      const total = cats.reduce((s, c) => s + c.total, 0);
+      const lines = cats.map((c) => `- **${c.category}**: ${formatUSD(c.total)}`);
       return (
-        "Os dados de demonstração não incluem transações nem categorias de gastos, por isso não é possível calcular quanto você gastou por categoria. " +
-        "Você pode perguntar “Quais são minhas contas?” para ver as contas de exemplo." +
+        `Seus gastos por categoria nas transações de demonstração somam **${formatUSD(total)}**:\n\n${lines.join("\n")}\n\n` +
+        "O cálculo considera apenas despesas (contas bancárias e cartões); entradas como salário e rendimentos não entram." +
         DEMO_NOTE
       );
+    }
     case "accounts": {
       const lines = accounts.map((a) =>
         a.type === "credit"

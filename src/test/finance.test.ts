@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { answer, detectIntent, formatUSD, totalAvailableCash, DEMO_ACCOUNTS } from "@/lib/finance";
+import { DEMO_TRANSACTIONS, latestTransactions, spendingByCategory, answer, detectIntent, formatUSD, totalAvailableCash, DEMO_ACCOUNTS } from "@/lib/finance";
 
 describe("regras financeiras", () => {
   it("formata em US$ com vírgula decimal", () => {
@@ -9,8 +9,9 @@ describe("regras financeiras", () => {
   it("dinheiro disponível não inclui dívidas nem limite", () => {
     expect(totalAvailableCash(DEMO_ACCOUNTS)).toBe(300);
   });
-  it("não inventa transações", () => {
-    expect(answer("Quais foram minhas últimas transações?")).toContain("Não há transações");
+  it("sem transações nos dados, não inventa", () => {
+    expect(answer("Quais foram minhas últimas transações?", DEMO_ACCOUNTS, [])).toContain("Não há transações");
+    expect(answer("Quanto gastei por categoria?", DEMO_ACCOUNTS, [])).toContain("Não há despesas");
   });
   it("crédito não informado é dito claramente", () => {
     expect(answer("Quais são minhas contas?")).toContain("crédito disponível não informado");
@@ -64,5 +65,33 @@ describe("regressão: cada pergunta recebe sua intenção", () => {
   });
   it("saldo disponível ausente não é inventado nem somado", () => {
     expect(totalAvailableCash([{ id: "x", name: "X", type: "checking", currency: "USD", balance: 50 }])).toBe(0);
+  });
+});
+
+describe("transações e gastos por categoria", () => {
+  it("últimas transações vêm da mais recente para a mais antiga", () => {
+    expect(latestTransactions(DEMO_TRANSACTIONS).map((t) => t.id)).toEqual(["t8", "t7", "t6", "t5", "t4"]);
+  });
+  it("resposta de transações mostra despesa e entrada com sinais", () => {
+    const r = answer("Quais foram minhas últimas transações?");
+    expect(r).toContain("18/10/2026 · **Combustível** · despesa −US$ 150,00");
+    expect(r).toContain("**Rendimento da poupança** · entrada +US$ 1,75");
+    expect(r).not.toContain("Salário");
+  });
+  it("gastos por categoria somam só despesas", () => {
+    expect(spendingByCategory(DEMO_TRANSACTIONS)).toEqual([
+      { category: "Transporte", total: 173.9 },
+      { category: "Alimentação", total: 147.9 },
+      { category: "Moradia", total: 120 },
+      { category: "Serviços", total: 49 },
+    ]);
+  });
+  it("resposta de categorias traz total US$ 490,80 sem renda", () => {
+    const r = answer("Quanto gastei por categoria?");
+    expect(r).toContain("**US$ 490,80**");
+    expect(r).not.toContain("**Renda**");
+  });
+  it("transações não alteram o dinheiro disponível", () => {
+    expect(answer("Qual é meu saldo disponível?")).toContain("**US$ 300,00**");
   });
 });
