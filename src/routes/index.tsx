@@ -112,10 +112,25 @@ function Index() {
             <button className="md:hidden" onClick={() => setShowHistory(true)} aria-label="Histórico"><History className="h-5 w-5" /></button>
             <span className="font-display font-semibold md:hidden">FinChat AI</span>
           </div>
-          <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">Demonstração · Dados fictícios</span>
-          <button onClick={newChat} className="md:hidden" aria-label="Nova conversa"><Plus className="h-5 w-5" /></button>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">Demonstração · Dados fictícios</span>
+            <button
+              onClick={() => setView(view === "chat" ? "dashboard" : "chat")}
+              aria-label={view === "chat" ? "Abrir painel" : "Voltar ao chat"}
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-semibold transition hover:border-primary"
+            >
+              {view === "chat" ? <LayoutDashboard className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}
+              {view === "chat" ? "Painel" : "Chat"}
+            </button>
+            <button onClick={newChat} className="md:hidden" aria-label="Nova conversa"><Plus className="h-5 w-5" /></button>
+          </div>
         </header>
 
+        {view === "dashboard" ? (
+          <div className="flex-1 overflow-y-auto">
+            <Dashboard />
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
             {messages.length === 0 && (
