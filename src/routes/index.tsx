@@ -157,7 +157,9 @@ function Index() {
             <div ref={endRef} />
           </div>
         </div>
+        )}
 
+        {view === "chat" && (
         <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="border-t border-border bg-card p-3">
           <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-input bg-background p-2 focus-within:ring-2 focus-within:ring-ring">
             <textarea
