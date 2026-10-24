@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - FinChat answers come from `answer()` in src/lib/finance.ts over local demo data; swap it for a backend call later without touching the UI components. Why: keeps the future API integration in one place.
+- Plaid prep lives in src/lib/plaid/: pure mappers/pagination (testable, no network), secrets read only in *.server.ts inside handlers, never VITE_*. Why: keeps credentials server-side and the app runnable in demo mode with no credentials.
