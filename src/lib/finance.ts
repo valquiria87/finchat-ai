@@ -93,10 +93,9 @@ export function totalCardDebt(accounts: DemoAccount[]): number {
 }
 
 export const SUGGESTIONS = [
-  "Quais são minhas contas?",
-  "Qual é meu saldo disponível?",
-  "Quais foram minhas últimas transações?",
-  "Quanto gastei por categoria?",
+  "Resuma minhas contas",
+  "Quais foram minhas movimentações?",
+  "Mostre um resumo financeiro",
 ];
 
 const DEMO_NOTE = "\n\n_Resposta baseada em dados simulados de demonstração._";
@@ -105,13 +104,14 @@ function norm(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-export type Intent = "card_purchase" | "cash" | "card_debt" | "card_limit" | "transactions" | "categories" | "accounts" | "unknown";
+export type Intent = "summary" | "card_purchase" | "cash" | "card_debt" | "card_limit" | "transactions" | "categories" | "accounts" | "unknown";
 
 const CARD = /cartao|cartoes|credito/;
 
 /** Identifica a intenção. A ordem importa: perguntas mais específicas vêm antes. */
 export function detectIntent(question: string): Intent {
   const q = norm(question);
+  if (/resumo financeiro/.test(q)) return "summary";
   if (CARD.test(q) && /\b(usar|uso|pagar|comprar|compra|compras)\b/.test(q)) return "card_purchase";
   if (/credito disponivel/.test(q)) return "card_limit";
   if (/dinheiro|saldo|quanto tenho/.test(q)) return "cash";
@@ -131,6 +131,11 @@ export function answer(question: string, accounts: DemoAccount[] = DEMO_ACCOUNTS
   const cash = formatUSD(totalAvailableCash(accounts));
 
   switch (detectIntent(question)) {
+    case "summary": {
+      if (!accounts.length && !txs.length) return "Não há dados financeiros disponíveis nesta demonstração." + DEMO_NOTE;
+      const spending = spendingByCategory(txs).reduce((sum, c) => sum + c.total, 0);
+      return `**Resumo financeiro da demonstração**\n\n- **Contas de exemplo**: ${accounts.length}\n- **Dinheiro bancário disponível**: ${cash}\n- **Dívida dos cartões**: ${formatUSD(totalCardDebt(accounts))}\n- **Movimentações**: ${txs.length}\n- **Despesas registradas**: ${formatUSD(spending)}\n\nO dinheiro disponível considera apenas contas corrente e poupança. Dívidas e limites de cartão ficam separados. As movimentações são um recorte demonstrativo, não um extrato completo para reconciliar os saldos.` + DEMO_NOTE;
+    }
     case "card_purchase": {
       const lines = cards.map(
         (a) => `- **${a.name}**: dívida atual ${fmtOpt(a.debt)}; limite total não informado; crédito disponível ${fmtOpt(a.availableCredit)}`,
@@ -197,6 +202,7 @@ export function answer(question: string, accounts: DemoAccount[] = DEMO_ACCOUNTS
       );
     }
     case "accounts": {
+      if (!accounts.length) return "Não há contas disponíveis nos dados de demonstração." + DEMO_NOTE;
       const lines = accounts.map((a) =>
         a.type === "credit"
           ? `- **${a.name}** (cartão de crédito): dívida ${fmtOpt(a.debt)}; crédito disponível ${fmtOpt(a.availableCredit)}`
