@@ -2,6 +2,22 @@ import { describe, it, expect } from "vitest";
 import { DEMO_TRANSACTIONS, latestTransactions, spendingByCategory, answer, detectIntent, formatUSD, totalAvailableCash, DEMO_ACCOUNTS } from "@/lib/finance";
 
 describe("regras financeiras", () => {
+  it("as três sugestões consultam as intenções correspondentes", () => {
+    expect(detectIntent("Resuma minhas contas")).toBe("accounts");
+    expect(detectIntent("Quais foram minhas movimentações?")).toBe("transactions");
+    expect(detectIntent("Mostre um resumo financeiro")).toBe("summary");
+  });
+  it("o resumo separa dinheiro bancário, dívida e despesas", () => {
+    const result = answer("Mostre um resumo financeiro");
+    expect(result).toContain("**Dinheiro bancário disponível**: US$ 300,00");
+    expect(result).toContain("**Dívida dos cartões**: US$ 5.430,00");
+    expect(result).toContain("**Despesas registradas**: US$ 490,80");
+    expect(result).toContain("**Movimentações**: 8");
+  });
+  it("contas e resumo vazios não inventam dados", () => {
+    expect(answer("Resuma minhas contas", [], [])).toContain("Não há contas");
+    expect(answer("Mostre um resumo financeiro", [], [])).toContain("Não há dados financeiros");
+  });
   it("formata em US$ com vírgula decimal", () => {
     expect(formatUSD(110)).toBe("US$ 110,00");
     expect(formatUSD(5020)).toBe("US$ 5.020,00");
