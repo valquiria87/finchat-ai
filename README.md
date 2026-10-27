@@ -87,7 +87,56 @@ Os testes automatizados existentes estão em `src/test/` e são executados com V
 
 ## Evidências
 
-Não há capturas de tela (`.png`, `.jpg`, `.jpeg`, `.webp` ou `.gif`) no repositório neste momento.
+Os dois PDFs registram resultados e instruções do laboratório MCP. Esse registro documental não equivale a capturas brutas das chamadas, e os dados do laboratório não são os dados usados pelo aplicativo.
+
+### Laboratório MCP documentado nos PDFs
+
+O laboratório descrito a seguir é separado do FinChat AI publicado. A aplicação continua usando exclusivamente a demonstração local explicada neste README.
+
+#### Pluggy Docs MCP
+
+O Guia do Instrutor (p. 6) orienta adicionar um servidor MCP remoto chamado `pluggy`, do tipo **Streamable HTTP**, com a URL `https://mcp.pluggy.ai/mcp` e sem autenticação. Depois de salvar, reinicie o Codex se necessário e confira `/mcp` numa conversa nova. O servidor é usado para consultar documentação da Pluggy; não acessa contas bancárias.
+
+O Guia registra que, após reiniciar o Codex, o servidor respondeu. P01 retornou quatro operações de transação depois de corrigir o filtro de grupo para `Transaction`; P02 foi usado para explicar conceitos com fontes; P03 foi executado. P04 é um aprofundamento opcional e não deve executar consulta de dados (p. 7–10). Esses são resultados relatados no Guia, não uma transcrição bruta anexada ao repositório.
+
+#### Plaid Sandbox MCP
+
+O Guia (p. 13–16) orienta instalar `uv`, localizar o executável `uvx` e adicionar um servidor **STDIO** chamado `plaid`. No Mac do instrutor, a instalação registrada foi `brew install uv`; em outros sistemas, siga as instruções oficiais de instalação do [`uv`](https://docs.astral.sh/uv/getting-started/installation/). Use o caminho local de `uvx` como comando e `mcp-server-plaid` como argumento. Configure localmente as variáveis `PLAID_CLIENT_ID` e `PLAID_SECRET` nos campos de ambiente do servidor; não inclua seus valores neste README, em prompts, capturas ou no frontend. Salve e reinicie o Codex, depois confirme o servidor com `/mcp`. O caminho `/Users/brunolima/.local/bin/uvx` mostrado no Guia é específico do Mac do instrutor; em outros sistemas, use o caminho local correspondente.
+
+P05 é a verificação documental do servidor. P06 registra a criação de um Item padrão com o produto `transactions`, sem webhook, e a obtenção de um token. O Guia deixa **pendente** a confirmação de que a instituição desse Item foi `First Platypus Bank` (`ins_109508`); portanto, este README não afirma que foi. P07 é descrito como consulta de leitura ao Sandbox, usando `/accounts/get` e `/transactions/get`, com paginação `count`/`offset`/`total_transactions` e período de 90 dias. O Guia relata uma primeira falha de rede e uma tentativa posterior bem-sucedida; isso não significa que o aplicativo tenha executado essas chamadas (p. 16–23).
+
+#### Resultados históricos relatados pelo Guia
+
+O Guia registra uma consulta de **28/06/2026 a 25/09/2026**: **14 contas**, **48 transações confirmadas** e **0 pendentes**. Informa entradas confirmadas de **US$ 1.512,66** e saídas confirmadas de **US$ 33.448,38**. Na Plaid, o sinal positivo representa saída e o negativo, entrada. Esses números são resultados documentados do laboratório Sandbox; não são os quatro registros de contas nem as oito transações fictícias locais do aplicativo (p. 20–21).
+
+O Guia também registra três observações sobre aquele conjunto: seis transferências de saída somando **US$ 20.550,00**; nove registros de alimentação e bebidas somando **US$ 1.548,99**; e seis transações identificadas como Uber somando **US$ 35,19**. O próprio Guia alerta que transferências podem ser movimentações entre contas, não consumo, e que os dados são fictícios (p. 21–22). O aplicativo atual calcula gastos por categoria sobre sua própria amostra local e não produz essas três observações do Sandbox.
+
+### Resumo da especificação do chat no Lovable
+
+O Guia (p. 25–28) contém uma especificação de chat em português, responsivo, com indicação de demonstração fictícia, sugestões clicáveis, envio por botão/Enter e quebra de linha com Shift+Enter, carregamento, erros compreensíveis, histórico, contas, saldos, transações, categorias e respostas limitadas aos dados disponíveis. Define uma Etapa 1 funcional com dados locais fictícios e uma Etapa 2 futura com backend Plaid Sandbox e segredos apenas no servidor. Também inclui P09 para revisar a prévia em desktop e celular.
+
+Este parágrafo é um **resumo da especificação incluída no Guia**, não uma transcrição do prompt original enviado ao Lovable. Não localizei no repositório o texto integral do prompt efetivamente utilizado nem um registro que comprove essa submissão.
+
+### Ajustes confirmados pelo histórico Git
+
+O histórico registra a inclusão de transações fictícias (`0e86680`), a adição do painel financeiro (`7ad0605`), estados e sugestões de interação (`484805a`), o workflow de testes (`17635bd`) e uma etapa de formatação/verificação (`4ddc2da`). Isso confirma a evolução desses arquivos no projeto; não comprova quais instruções foram enviadas ao Lovable nem uma revisão manual P09.
+
+### Melhoria escolhida
+
+**Pendente de confirmação.** O histórico e os PDFs disponíveis não identificam qual melhoria foi escolhida pela autora para apresentar como melhoria do desafio. As funcionalidades existentes não são atribuídas aqui a uma escolha específica sem essa evidência.
+
+### Capturas de tela ainda necessárias
+
+Não há capturas de tela (`.png`, `.jpg`, `.jpeg`, `.webp` ou `.gif`) no repositório neste momento. Para completar as evidências de portfólio, ainda faltam:
+
+- capturas das respostas reais do Pluggy Docs MCP, sem dados sensíveis;
+- capturas do P05 e do P06 do Plaid Sandbox MCP; não exiba credenciais ou token, e não indique a instituição como confirmada sem prova;
+- capturas da consulta P07 mostrando contas, as cinco transações mais recentes e as três observações, com período e moeda visíveis;
+- capturas da conversa com o aplicativo publicado e do painel em desktop e celular, como parte da revisão P09.
+
+As tabelas e os totais deste README são transcrições resumidas do Guia do Instrutor, não imagens nem registros brutos das chamadas MCP. Não foram criadas capturas para esta documentação.
+
+Materiais de referência: [Guia do Instrutor (PDF)](https://hermes.dio.me/files/assets/0e56ff91-f2bd-4f37-bd37-a330f5a844f2.pdf) e [Apresentação da aula (PDF)](https://hermes.dio.me/files/assets/e0d3f15d-6418-4ca0-98a7-4130b7832c43.pdf).
 
 ## Próximos passos para uma integração futura com MCP/Plaid
 
