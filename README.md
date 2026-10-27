@@ -101,7 +101,7 @@ O Guia registra que, após reiniciar o Codex, o servidor respondeu. P01 retornou
 
 #### Plaid Sandbox MCP
 
-O Guia (p. 13–16) orienta instalar `uv`, localizar o executável `uvx` e adicionar um servidor **STDIO** chamado `plaid`. No Mac do instrutor, a instalação registrada foi `brew install uv`; em outros sistemas, siga as instruções oficiais de instalação do [`uv`](https://docs.astral.sh/uv/getting-started/installation/). Use o caminho local de `uvx` como comando e `mcp-server-plaid` como argumento. Configure localmente as variáveis `PLAID_CLIENT_ID` e `PLAID_SECRET` nos campos de ambiente do servidor; não inclua seus valores neste README, em prompts, capturas ou no frontend. Salve e reinicie o Codex, depois confirme o servidor com `/mcp`. O caminho `/Users/brunolima/.local/bin/uvx` mostrado no Guia é específico do Mac do instrutor; em outros sistemas, use o caminho local correspondente.
+O Guia (p. 13–16) orienta instalar `uv`, localizar o executável `uvx` e adicionar um servidor **STDIO** chamado `plaid`. No Mac do instrutor, a instalação registrada foi `brew install uv`; em outros sistemas, siga as instruções oficiais de instalação do [`uv`](https://docs.astral.sh/uv/getting-started/installation/). Use `uvx` como comando se estiver disponível no `PATH` do processo do Codex; caso contrário, informe o caminho completo do executável local. O argumento deve ser `mcp-server-plaid`. Configure localmente as variáveis `PLAID_CLIENT_ID` e `PLAID_SECRET` nos campos de ambiente do servidor; não inclua seus valores neste README, em prompts, capturas ou no frontend. Salve e reinicie o Codex, depois confirme o servidor com `/mcp`.
 
 P05 é a verificação documental do servidor. P06 registra a criação de um Item padrão com o produto `transactions`, sem webhook, e a obtenção de um token. O Guia deixa **pendente** a confirmação de que a instituição desse Item foi `First Platypus Bank` (`ins_109508`); portanto, este README não afirma que foi. P07 é descrito como consulta de leitura ao Sandbox, usando `/accounts/get` e `/transactions/get`, com paginação `count`/`offset`/`total_transactions` e período de 90 dias. O Guia relata uma primeira falha de rede e uma tentativa posterior bem-sucedida; isso não significa que o aplicativo tenha executado essas chamadas (p. 16–23).
 
@@ -125,9 +125,11 @@ Este parágrafo é um **resumo da especificação incluída no Guia**, não uma 
 
 O histórico registra a inclusão de transações fictícias (`0e86680`), a adição do painel financeiro (`7ad0605`), estados e sugestões de interação (`484805a`), o workflow de testes (`17635bd`) e uma etapa de formatação/verificação (`4ddc2da`). Isso confirma a evolução desses arquivos no projeto; não comprova quais instruções foram enviadas ao Lovable nem uma revisão manual P09.
 
-### Melhoria escolhida
+### Funcionalidade implementada
 
-**Pendente de confirmação.** O histórico e os PDFs disponíveis não identificam qual melhoria foi escolhida pela autora para apresentar como melhoria do desafio. As funcionalidades existentes não são atribuídas aqui a uma escolha específica sem essa evidência.
+**Transações demonstrativas e análise de gastos por categoria.** A demonstração contém oito transações fictícias definidas em `src/lib/finance.ts`. A função `spendingByCategory()` soma as despesas por categoria e ordena os totais do maior para o menor. O painel financeiro e as respostas do chat utilizam essa função.
+
+Os testes existentes cobrem essas funcionalidades e esperam os seguintes totais: Transporte: **US$ 173,90**; Alimentação: **US$ 147,90**; Moradia: **US$ 120,00**; Serviços: **US$ 49,00**; total de despesas: **US$ 490,80**.
 
 ### Capturas de tela ainda necessárias
 
