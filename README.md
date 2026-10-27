@@ -1,3 +1,5 @@
+![Testes](https://github.com/valquiria87/finchat-ai/actions/workflows/main.yml/badge.svg)
+
 # FinChat AI — Assistente Financeiro Conversacional
 
 Assistente financeiro conversacional desenvolvido como projeto prático de estudo em Inteligência Artificial, integração de dados e desenvolvimento de aplicações web.
