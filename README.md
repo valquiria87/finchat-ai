@@ -105,6 +105,10 @@ O Guia (p. 13–16) orienta instalar `uv`, localizar o executável `uvx` e adici
 
 P05 é a verificação documental do servidor. P06 registra a criação de um Item padrão com o produto `transactions`, sem webhook, e a obtenção de um token. O Guia deixa **pendente** a confirmação de que a instituição desse Item foi `First Platypus Bank` (`ins_109508`); portanto, este README não afirma que foi. P07 é descrito como consulta de leitura ao Sandbox, usando `/accounts/get` e `/transactions/get`, com paginação `count`/`offset`/`total_transactions` e período de 90 dias. O Guia relata uma primeira falha de rede e uma tentativa posterior bem-sucedida; isso não significa que o aplicativo tenha executado essas chamadas (p. 16–23).
 
+#### Registro complementar da execução P07
+
+O [relatório P07](./docs/evidencias/P07-RESULTADO.md) registra uma consulta de 28/06/2026 a 25/09/2026 com cinco transações em USD, retornadas em uma página. Após uma tentativa com `PRODUCT_NOT_READY`, a nova tentativa teve sucesso. Os resultados são agregados: USD teve 0 pendentes e 5 confirmadas, soma algébrica de US$ 163,57 e maior movimento absoluto de US$ 111,47. Este registro é distinto dos números históricos do Guia (14 contas e 48 transações); não representa saída bruta da API e não comprova as tabelas originais dos três padrões de gastos.
+
 #### Resultados históricos relatados pelo Guia
 
 O Guia registra uma consulta de **28/06/2026 a 25/09/2026**: **14 contas**, **48 transações confirmadas** e **0 pendentes**. Informa entradas confirmadas de **US$ 1.512,66** e saídas confirmadas de **US$ 33.448,38**. Na Plaid, o sinal positivo representa saída e o negativo, entrada. Esses números são resultados documentados do laboratório Sandbox; não são os quatro registros de contas nem as oito transações fictícias locais do aplicativo (p. 20–21).
