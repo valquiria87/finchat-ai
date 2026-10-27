@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { DEMO_TRANSACTIONS, latestTransactions, spendingByCategory, answer, detectIntent, formatUSD, totalAvailableCash, DEMO_ACCOUNTS } from "@/lib/finance";
+import {
+  DEMO_TRANSACTIONS,
+  latestTransactions,
+  spendingByCategory,
+  answer,
+  detectIntent,
+  formatUSD,
+  totalAvailableCash,
+  DEMO_ACCOUNTS,
+} from "@/lib/finance";
 
 describe("regras financeiras", () => {
   it("as três sugestões consultam as intenções correspondentes", () => {
@@ -26,7 +35,9 @@ describe("regras financeiras", () => {
     expect(totalAvailableCash(DEMO_ACCOUNTS)).toBe(300);
   });
   it("sem transações nos dados, não inventa", () => {
-    expect(answer("Quais foram minhas últimas transações?", DEMO_ACCOUNTS, [])).toContain("Não há transações");
+    expect(answer("Quais foram minhas últimas transações?", DEMO_ACCOUNTS, [])).toContain(
+      "Não há transações",
+    );
     expect(answer("Quanto gastei por categoria?", DEMO_ACCOUNTS, [])).toContain("Não há despesas");
   });
   it("crédito não informado é dito claramente", () => {
@@ -43,7 +54,9 @@ describe("perguntas sobre cartão", () => {
     expect(r).toContain("crédito disponível US$ 4.980,00");
   });
   it("não inventa o crédito do Plaid Credit Card", () => {
-    expect(r).toContain("Plaid Credit Card**: dívida atual US$ 410,00; limite total não informado; crédito disponível não informado");
+    expect(r).toContain(
+      "Plaid Credit Card**: dívida atual US$ 410,00; limite total não informado; crédito disponível não informado",
+    );
   });
 });
 
@@ -66,7 +79,9 @@ describe("regressão: cada pergunta recebe sua intenção", () => {
   });
 
   it("dinheiro disponível sem limite soma só contas bancárias: US$ 300,00", () => {
-    const r = answer("Quanto dinheiro tenho disponível, sem contar o limite dos cartões de crédito?");
+    const r = answer(
+      "Quanto dinheiro tenho disponível, sem contar o limite dos cartões de crédito?",
+    );
     expect(r).toContain("**US$ 300,00**");
     expect(r).not.toContain("Sim, um cartão de crédito permite");
     expect(r).not.toContain("4.980");
@@ -76,17 +91,29 @@ describe("regressão: cada pergunta recebe sua intenção", () => {
   });
   it("limite não inventa valores", () => {
     const r = answer("Qual é o limite total do meu cartão?");
-    expect(r).toContain("Plaid Credit Card**: limite total não informado; crédito disponível não informado");
-    expect(r).toContain("Plaid Business Credit Card**: limite total não informado; crédito disponível US$ 4.980,00");
+    expect(r).toContain(
+      "Plaid Credit Card**: limite total não informado; crédito disponível não informado",
+    );
+    expect(r).toContain(
+      "Plaid Business Credit Card**: limite total não informado; crédito disponível US$ 4.980,00",
+    );
   });
   it("saldo disponível ausente não é inventado nem somado", () => {
-    expect(totalAvailableCash([{ id: "x", name: "X", type: "checking", currency: "USD", balance: 50 }])).toBe(0);
+    expect(
+      totalAvailableCash([{ id: "x", name: "X", type: "checking", currency: "USD", balance: 50 }]),
+    ).toBe(0);
   });
 });
 
 describe("transações e gastos por categoria", () => {
   it("últimas transações vêm da mais recente para a mais antiga", () => {
-    expect(latestTransactions(DEMO_TRANSACTIONS).map((t) => t.id)).toEqual(["t8", "t7", "t6", "t5", "t4"]);
+    expect(latestTransactions(DEMO_TRANSACTIONS).map((t) => t.id)).toEqual([
+      "t8",
+      "t7",
+      "t6",
+      "t5",
+      "t4",
+    ]);
   });
   it("resposta de transações mostra despesa e entrada com sinais", () => {
     const r = answer("Quais foram minhas últimas transações?");

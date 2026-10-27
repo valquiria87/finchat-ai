@@ -1,8 +1,10 @@
 // Conversões puras Plaid -> app. Sem rede, sem segredos.
 import type { AppAccount, PlaidAccount, PlaidTransaction, Transaction } from "./types";
 
-const currencyOf = (b: { iso_currency_code: string | null; unofficial_currency_code: string | null }) =>
-  b.iso_currency_code ?? b.unofficial_currency_code ?? null;
+const currencyOf = (b: {
+  iso_currency_code: string | null;
+  unofficial_currency_code: string | null;
+}) => b.iso_currency_code ?? b.unofficial_currency_code ?? null;
 
 export function mapAccount(a: PlaidAccount): AppAccount {
   const currency = currencyOf(a.balances);
@@ -43,7 +45,9 @@ export function mapTransaction(t: PlaidTransaction): Transaction {
 
 /** Soma só dinheiro disponível em contas; ignora dívida e crédito. Retorna null se nada foi informado. */
 export function sumAvailableCash(accounts: AppAccount[]): number | null {
-  const vals = accounts.flatMap((a) => (a.kind === "cash" && a.available != null ? [a.available] : []));
+  const vals = accounts.flatMap((a) =>
+    a.kind === "cash" && a.available != null ? [a.available] : [],
+  );
   return vals.length ? vals.reduce((s, v) => s + v, 0) : null;
 }
 

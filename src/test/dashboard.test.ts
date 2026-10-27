@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_ACCOUNTS, DEMO_TRANSACTIONS, demoProvider, spendingByCategory, totalAvailableCash, totalCardDebt } from "@/lib/finance";
+import {
+  DEMO_ACCOUNTS,
+  DEMO_TRANSACTIONS,
+  demoProvider,
+  spendingByCategory,
+  totalAvailableCash,
+  totalCardDebt,
+} from "@/lib/finance";
 
 // Valores exibidos nos cards do painel (src/components/finchat/Dashboard.tsx).
 describe("cálculos do painel", () => {

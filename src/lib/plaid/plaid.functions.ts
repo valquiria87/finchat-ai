@@ -7,5 +7,9 @@ import { getPlaidConfigStatus } from "./config.server";
  */
 export const getIntegrationStatus = createServerFn({ method: "GET" }).handler(async () => {
   const { configured } = getPlaidConfigStatus();
-  return { mode: "demo" as const, plaidCredentialsPresent: configured, integrationImplemented: false };
+  return {
+    mode: "demo" as const,
+    plaidCredentialsPresent: configured,
+    integrationImplemented: false,
+  };
 });

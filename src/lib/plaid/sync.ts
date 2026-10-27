@@ -14,7 +14,11 @@ export interface SyncResult {
 const MUTATION_ERROR = "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION";
 
 function isMutationError(e: unknown): boolean {
-  return typeof e === "object" && e !== null && (e as { error_code?: string }).error_code === MUTATION_ERROR;
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    (e as { error_code?: string }).error_code === MUTATION_ERROR
+  );
 }
 
 export async function syncAllTransactions(
