@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Baixar o código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configurar Bun
         uses: oven-sh/setup-bun@v2
