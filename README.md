@@ -2,140 +2,99 @@
 
 # FinChat AI — Assistente Financeiro Conversacional
 
-Assistente financeiro conversacional desenvolvido como projeto prático de estudo em Inteligência Artificial, integração de dados e desenvolvimento de aplicações web.
+Aplicação web desenvolvida como entrega do desafio DIO Bradesco. O FinChat AI demonstra como uma interface conversacional pode apresentar informações financeiras de forma clara, com regras que mantêm saldo bancário, dívida de cartão e crédito disponível separados.
 
-O FinChat AI permite consultar informações financeiras demonstrativas em português, distinguindo saldo disponível, dívidas de cartões e crédito disponível.
+> **Demonstração:** todos os dados financeiros são fictícios e locais. O aplicativo não está conectado a bancos, ao Plaid ou ao Pluggy.
 
-> **Aviso:** esta versão utiliza dados fictícios locais. Não está conectada a contas bancárias reais.
+## Objetivo e cenário de uso
 
-## Objetivo do projeto
+A pessoa usuária pode explorar um painel financeiro de exemplo e fazer perguntas em português sobre contas, dinheiro disponível, dívida e crédito de cartões, movimentações, gastos por categoria e resumo financeiro. O projeto é uma demonstração educacional de interface e lógica de negócio; não deve ser usado para consultar ou tomar decisões sobre finanças reais.
 
-Demonstrar como uma interface conversacional pode apresentar informações financeiras de forma clara, respeitando regras de negócio e evitando conclusões que não sejam sustentadas pelos dados disponíveis.
+## Aplicação publicada
 
-## Funcionalidades
+[https://pocketwise-finance-chat.lovable.app](https://pocketwise-finance-chat.lovable.app)
 
-- Interface de chat em português do Brasil.
-- Consulta demonstrativa de contas e saldos.
-- Distinção entre dinheiro disponível, dívida de cartão e crédito disponível.
-- Perguntas sugeridas para facilitar a interação.
-- Histórico de conversas salvo no navegador.
-- Criação de novas conversas.
-- Tratamento de perguntas cujas informações não estão disponíveis.
-- Interface responsiva para computador e dispositivos móveis.
+## Funcionalidades atuais
 
-## Tecnologias utilizadas
+- Chat em português com sugestões de perguntas e respostas para intenções previstas no código.
+- Painel com saldo disponível, dívida de cartões, gastos por categoria, contas de exemplo e movimentações recentes.
+- Histórico de conversas e criação de novas conversas, armazenados no `localStorage` do navegador.
+- Tratamento de perguntas sem resposta disponível e aviso de que as respostas usam dados simulados.
+- Layout responsivo para telas menores.
+- Regras para não somar dívida ou limite de cartão ao dinheiro disponível. O saldo disponível considera apenas contas corrente e poupança.
 
-- React
-- TypeScript
-- Tailwind CSS
-- TanStack Start
-- Lovable
+### Limites da demonstração
 
-## Regras de negócio e confiabilidade
+O chat usa correspondência de padrões e regras locais; não é um modelo de linguagem conectado a uma API. Responde somente às intenções codificadas. As quatro contas e oito movimentações são exemplos estáticos em USD; as movimentações são um recorte ilustrativo de outubro de 2026, não um extrato completo nem uma base para reconciliar saldos. Não há login, banco de dados, sincronização, conexão bancária ou dados pessoais reais. O histórico fica apenas no armazenamento local do navegador.
 
-O assistente segue regras para evitar interpretações financeiras incorretas:
+## Dados e regras financeiras
 
-- Dívidas de cartão não são somadas ao dinheiro disponível.
-- Crédito disponível não é tratado como dinheiro próprio.
-- Valores ausentes são identificados como não informados.
-- A moeda USD é preservada na demonstração.
-- Informações não presentes nos dados não devem ser inventadas.
-- As respostas devem deixar claro quando os dados disponíveis não permitem uma conclusão.
+Os dados vêm de `DEMO_ACCOUNTS` e `DEMO_TRANSACTIONS` em `src/lib/finance.ts`, por meio do `demoProvider`. As contas de exemplo são Plaid Checking, Plaid Saving, Plaid Credit Card e Plaid Business Credit Card; os nomes Plaid são rótulos dos dados fictícios, não evidência de conexão com o Plaid.
 
-## Dados demonstrativos
+As movimentações usam a convenção implementada no projeto: valor positivo representa despesa/saída e valor negativo representa entrada. O painel e as respostas calculam gastos usando somente despesas. As transações não atualizam nem determinam os saldos das contas. Valores ausentes, como limite total de cartão, são apresentados como não informados em vez de estimados.
 
-A versão inicial utiliza quatro contas fictícias:
+## Tecnologias
 
-- Plaid Checking
-- Plaid Saving
-- Plaid Credit Card
-- Plaid Business Credit Card
-
-Essas contas servem apenas para testar a interface e as regras de negócio. Não representam contas bancárias reais.
-
-Além das contas, há oito transações fictícias de outubro de 2026, com categorias (Renda, Alimentação, Moradia, Transporte e Serviços), data, descrição, valor e tipo. As despesas e entradas seguem a convenção de sinal do Plaid: positivo = saída (despesa), negativo = entrada. As transações não alteram o saldo disponível dos cálculos.
+- React 19 e TypeScript
+- TanStack Start e TanStack Router
+- Vite
+- Tailwind CSS v4
+- Vitest, Testing Library e jsdom para testes
+- Bun para instalação e execução conforme o `bun.lock`
+- Lucide React para ícones
 
 ## Arquitetura atual
 
-O FinChat AI é uma aplicação web em TanStack Start (React 19 + Vite), com estilos em Tailwind CSS v4. Nesta versão, todo o chat roda no navegador sobre dados fictícios locais.
-
 | Arquivo | Responsabilidade |
 |---|---|
-| `src/routes/index.tsx` | Tela do chat: mensagens, sugestões, histórico, painel financeiro e aviso “Demonstração · Dados fictícios”. |
-| `src/components/finchat/ChatMessage.tsx` | Exibição de cada mensagem do chat. |
-| `src/components/finchat/Dashboard.tsx` | Painel financeiro visual: saldo disponível, dívida dos cartões, gastos por categoria, contas e últimas movimentações. |
-| `src/lib/finance.ts` | Contas e transações fictícias, provedor de demonstração (`demoProvider`), identificação da intenção da pergunta (`detectIntent`) e geração da resposta (`answer`). |
+| `src/routes/index.tsx` | Tela do chat, estado da conversa, histórico no navegador e alternância entre chat e painel. Chama `answer()` para responder. |
+| `src/components/finchat/ChatMessage.tsx` | Apresentação de mensagens. |
+| `src/components/finchat/Dashboard.tsx` | Painel de contas e movimentações; usa `demoProvider` e os helpers financeiros compartilhados. |
+| `src/lib/finance.ts` | Dados locais, `demoProvider`, cálculos, identificação de intenção e função `answer()`. É o ponto isolado para futura substituição da origem das respostas. |
+| `src/lib/plaid/types.ts`, `mappers.ts`, `sync.ts` | Tipos, mapeadores puros e lógica de paginação preparatória para Plaid. Não realizam requisições de rede nem alimentam a interface atual. |
+| `src/lib/plaid/config.server.ts`, `plaid.functions.ts` | Leitura server-side da presença de variáveis de configuração e indicação de que a integração não foi implementada. Não expõem os segredos nem chamam a API do Plaid. |
+| `src/test/` | Testes de lógica financeira, mapeadores/paginação Plaid, painel e rota inicial. |
 
-O histórico de conversas é salvo no `localStorage` do navegador. Não há banco de dados nem login.
+O estado financeiro exibido pela aplicação vem do provedor local de demonstração. O `localStorage` guarda somente conversas no navegador. Não existe backend de dados financeiros conectado.
 
-### Identificação de intenções
+## Instalar e executar localmente
 
-`detectIntent` classifica cada pergunta, da mais específica para a mais geral:
+Requisito: [Bun](https://bun.sh).
 
-1. Resumo financeiro geral.
-2. Uso do cartão de crédito para fazer compras.
-3. Dinheiro disponível nas contas bancárias (soma só o saldo disponível de conta corrente e poupança).
-4. Dívida atual dos cartões.
-5. Limite total e crédito disponível dos cartões.
-6. Transações (respondidas com as oito movimentações da demonstração).
-7. Gastos por categoria (somam apenas despesas).
-8. Lista de contas.
+```bash
+bun install
+bun run dev
+```
 
-Quando a pergunta não se encaixa em nenhuma intenção, o assistente informa que não consegue responder com os dados disponíveis.
+O servidor de desenvolvimento informa no terminal o endereço local. Para executar os testes existentes:
 
-## Preparação para o Plaid (integração não implementada)
+```bash
+bun run test
+```
 
-> **A integração real com o Plaid não foi implementada.** O app não faz nenhuma chamada ao Plaid, não pede credenciais e usa apenas dados fictícios.
+Para gerar e visualizar a build de produção:
 
-Ainda não estão implementados:
+```bash
+bun run build
+bun run preview
+```
 
-- Autenticação de usuário (login) e banco de dados.
-- Armazenamento seguro do `access_token` do Plaid.
-- Sincronização real com o Plaid (criação do Link token, troca do public token, consulta de contas e `/transactions/sync`).
-
-Foram criados apenas módulos de preparação, que ainda não são usados pela tela do chat:
-
-| Arquivo | Conteúdo |
-|---|---|
-| `src/lib/plaid/types.ts` | Tipos separados para contas bancárias (saldo), cartões (dívida, crédito disponível e limite) e transações, além dos formatos de resposta do Plaid. |
-| `src/lib/plaid/mappers.ts` | Conversão pura das contas e transações do Plaid para o formato do app. Preserva o sinal do Plaid (positivo = saída, negativo = entrada) e mantém valores ausentes como não informados. |
-| `src/lib/plaid/sync.ts` | Paginação de `/transactions/sync`: segue `next_cursor` enquanto `has_more` for verdadeiro e recomeça do cursor original após `TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION`. A busca de páginas é recebida como parâmetro; não há requisição real. |
-| `src/lib/plaid/config.server.ts` | Executado apenas no servidor. Verifica se `PLAID_CLIENT_ID` e `PLAID_SECRET` existem, sem nunca devolver os valores. |
-| `src/lib/plaid/plaid.functions.ts` | Função de servidor que informa `mode: "demo"` e `integrationImplemented: false`. |
-
-Credenciais nunca devem ir para o frontend nem para variáveis `VITE_*`.
+A demonstração não exige credenciais nem variáveis de ambiente.
 
 ## Testes
 
-Os testes usam Vitest. Na última execução, **45 testes foram aprovados** em 4 arquivos e a checagem de tipos não apresentou erros:
+Os testes automatizados existentes estão em `src/test/` e são executados com Vitest pelo comando `bun run test`. A execução validada nesta revisão aprovou 45 testes em 4 arquivos.
 
-| Arquivo | Testes | Cobertura |
-|---|---|---|
-| `src/test/finance.test.ts` | 30 | Formatação em US$, dinheiro disponível sem dívidas e limites, transações e gastos por categoria, respostas sobre cartão, resumo financeiro e regressão da identificação de intenções e dos valores (US$ 300,00 disponível, US$ 5.430,00 de dívida, limites não informados). |
-| `src/test/plaid.test.ts` | 9 | Conversão de contas, separação entre saldo, crédito disponível e dívida, sinais das transações e paginação de `/transactions/sync`. |
-| `src/test/dashboard.test.ts` | 5 | Valores exibidos no painel: saldo disponível, dívida dos cartões, gastos por categoria e total de despesas. |
-| `src/test/app-routing.test.tsx` | 1 | Carregamento da página inicial. |
+## Evidências
 
-## Instalação e execução local
+Não há capturas de tela (`.png`, `.jpg`, `.jpeg`, `.webp` ou `.gif`) no repositório neste momento.
 
-Requisitos: [Bun](https://bun.sh) (o projeto usa `bun.lock`).
+## Próximos passos para uma integração futura com MCP/Plaid
 
-```bash
-bun install      # instala as dependências
-bun run dev      # inicia o servidor de desenvolvimento
-bun run test     # executa todos os testes
-bun run build    # gera a versão de produção
-bun run lint     # verifica o código
-```
+1. Usar o Pluggy MCP, se necessário, como apoio para consultar documentação e planejar a integração; isso não conecta o aplicativo a contas bancárias.
+2. Definir e implementar uma integração Plaid no servidor, começando pelo Sandbox e mantendo credenciais fora do frontend e de variáveis `VITE_*`.
+3. Implementar autenticação, fluxo Plaid Link, troca segura de tokens e persistência protegida por usuário.
+4. Implementar chamadas server-side para contas e sincronização de transações, aproveitando e validando os mapeadores e a paginação já preparados.
+5. Criar um provedor real que substitua a origem dos dados de demonstração sem transferir credenciais ou lógica de integração para os componentes de UI; validar consentimento, erros, atualização e reconciliação dos dados.
 
-Nenhuma credencial ou variável de ambiente é necessária para rodar a demonstração.
-
-## Próximos passos
-
-1. Consultar a documentação do Pluggy por meio do MCP. O MCP do Pluggy é usado apenas para pesquisar a documentação do Pluggy; ele não serve para acessar dados bancários do Plaid.
-2. Usar o Plaid Sandbox como fonte dos dados financeiros fictícios da futura integração. É o ambiente de testes do Plaid, com contas e transações simuladas, e não contém dados de contas reais.
-3. Ativar login e banco de dados para guardar com segurança o token de acesso e o cursor de sincronização.
-4. Implementar no servidor as chamadas ao Plaid Sandbox (criação do Link token, troca do public token, consulta de contas e `/transactions/sync`), usando os módulos de preparação.
-5. Substituir os dados fictícios de `answer()` por dados reais, mantendo as mesmas regras de negócio.
-
-> A integração com o Plaid ainda não está pronta: depende de implementar autenticação, armazenamento seguro de tokens e chamadas de servidor.
+Esses itens são possibilidades futuras. Nem Pluggy MCP, Plaid Sandbox nem uma API bancária real estão integrados ao aplicativo atual.
