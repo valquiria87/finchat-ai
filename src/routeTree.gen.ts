@@ -10,33 +10,89 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPluggyDataRouteImport } from './routes/api.pluggy-data'
+import { Route as ApiPluggySessionRouteImport } from './routes/api.pluggy-session'
+import { Route as ApiPluggyTokenRouteImport } from './routes/api.pluggy-token'
+import { Route as ApiPluggyWebhookRouteImport } from './routes/api.pluggy-webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPluggyDataRoute = ApiPluggyDataRouteImport.update({
+  id: '/api/pluggy-data',
+  path: '/api/pluggy-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPluggySessionRoute = ApiPluggySessionRouteImport.update({
+  id: '/api/pluggy-session',
+  path: '/api/pluggy-session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPluggyTokenRoute = ApiPluggyTokenRouteImport.update({
+  id: '/api/pluggy-token',
+  path: '/api/pluggy-token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPluggyWebhookRoute = ApiPluggyWebhookRouteImport.update({
+  id: '/api/pluggy-webhook',
+  path: '/api/pluggy-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/pluggy-data': typeof ApiPluggyDataRoute
+  '/api/pluggy-session': typeof ApiPluggySessionRoute
+  '/api/pluggy-token': typeof ApiPluggyTokenRoute
+  '/api/pluggy-webhook': typeof ApiPluggyWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/pluggy-data': typeof ApiPluggyDataRoute
+  '/api/pluggy-session': typeof ApiPluggySessionRoute
+  '/api/pluggy-token': typeof ApiPluggyTokenRoute
+  '/api/pluggy-webhook': typeof ApiPluggyWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/pluggy-data': typeof ApiPluggyDataRoute
+  '/api/pluggy-session': typeof ApiPluggySessionRoute
+  '/api/pluggy-token': typeof ApiPluggyTokenRoute
+  '/api/pluggy-webhook': typeof ApiPluggyWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/api/pluggy-data'
+    | '/api/pluggy-session'
+    | '/api/pluggy-token'
+    | '/api/pluggy-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/api/pluggy-data'
+    | '/api/pluggy-session'
+    | '/api/pluggy-token'
+    | '/api/pluggy-webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/pluggy-data'
+    | '/api/pluggy-session'
+    | '/api/pluggy-token'
+    | '/api/pluggy-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPluggyDataRoute: typeof ApiPluggyDataRoute
+  ApiPluggySessionRoute: typeof ApiPluggySessionRoute
+  ApiPluggyTokenRoute: typeof ApiPluggyTokenRoute
+  ApiPluggyWebhookRoute: typeof ApiPluggyWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +104,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pluggy-data': {
+      id: '/api/pluggy-data'
+      path: '/api/pluggy-data'
+      fullPath: '/api/pluggy-data'
+      preLoaderRoute: typeof ApiPluggyDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pluggy-session': {
+      id: '/api/pluggy-session'
+      path: '/api/pluggy-session'
+      fullPath: '/api/pluggy-session'
+      preLoaderRoute: typeof ApiPluggySessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pluggy-token': {
+      id: '/api/pluggy-token'
+      path: '/api/pluggy-token'
+      fullPath: '/api/pluggy-token'
+      preLoaderRoute: typeof ApiPluggyTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pluggy-webhook': {
+      id: '/api/pluggy-webhook'
+      path: '/api/pluggy-webhook'
+      fullPath: '/api/pluggy-webhook'
+      preLoaderRoute: typeof ApiPluggyWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPluggyDataRoute: ApiPluggyDataRoute,
+  ApiPluggySessionRoute: ApiPluggySessionRoute,
+  ApiPluggyTokenRoute: ApiPluggyTokenRoute,
+  ApiPluggyWebhookRoute: ApiPluggyWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

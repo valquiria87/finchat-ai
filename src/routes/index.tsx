@@ -1,35 +1,46 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import type { ComponentType } from "react";
 import {
-  History,
+  ArrowLeftRight,
+  ChartNoAxesCombined,
   Landmark,
   LayoutDashboard,
-  MessageSquare,
+  Menu,
   Plus,
   SendHorizontal,
   Trash2,
   X,
   LoaderCircle,
   AlertCircle,
+  MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 import { ChatMessage, type Msg } from "@/components/finchat/ChatMessage";
 import { Dashboard } from "@/components/finchat/Dashboard";
 import { Button } from "@/components/ui/button";
-import { SUGGESTIONS, answer } from "@/lib/finance";
+import {
+  SUGGESTIONS,
+  answer,
+  demoProvider,
+  type DemoAccount,
+  type DemoTransaction,
+  type FinanceDataProvider,
+} from "@/lib/finance";
+import type { PluggyAccount, PluggyTransaction } from "@/lib/pluggy.server";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FinChat AI — Assistente financeiro" },
+      { title: "Nexora Finance | Open Finance" },
       {
         name: "description",
-        content:
-          "Assistente financeiro conversacional em português com dados fictícios de demonstração.",
+        content: "Open Finance e inteligência financeira em uma experiência segura e conectada.",
       },
-      { property: "og:title", content: "FinChat AI — Assistente financeiro" },
+      { property: "og:title", content: "Nexora Finance | Open Finance" },
       {
         property: "og:description",
-        content: "Converse sobre contas, saldos e cartões em uma demonstração com dados fictícios.",
+        content: "Acompanhe contas e movimentações em um só lugar.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -54,7 +65,72 @@ function Index() {
   const [error, setError] = useState("");
   const [typing, setTyping] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [view, setView] = useState<"chat" | "dashboard">("chat");
+  const [section, setSection] = useState<"overview" | "accounts" | "transactions" | "chat">(
+    "overview",
+  );
+  const [pluggyToken, setPluggyToken] = useState<string | null>(null);
+  const [pluggyAccounts, setPluggyAccounts] = useState<PluggyAccount[]>([]);
+  const [pluggyTransactions, setPluggyTransactions] = useState<PluggyTransaction[]>([]);
+  const [pluggyConnected, setPluggyConnected] = useState(false);
+  const [pluggyStatus, setPluggyStatus] = useState<string | null>(null);
+  const [pluggyInstitution, setPluggyInstitution] = useState<string | null>(null);
+  const [pluggyLoading, setPluggyLoading] = useState(true);
+  const [pluggyLoadError, setPluggyLoadError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
+  const loadPluggy = async () => {
+    setPluggyLoading(true);
+    setPluggyLoadError(null);
+    try {
+      const response = await fetch("/api/pluggy-data");
+      const data = (await response.json()) as {
+        connected?: boolean;
+        item?: { status?: string; connector?: { name?: string } };
+        accounts?: PluggyAccount[];
+        transactions?: PluggyTransaction[];
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error ?? "Não foi possível carregar os dados Pluggy.");
+      setPluggyConnected(Boolean(data.connected));
+      setPluggyAccounts(data.accounts ?? []);
+      setPluggyTransactions(data.transactions ?? []);
+      const connectorName = data.item?.connector?.name;
+      setPluggyInstitution(connectorName ?? null);
+      const isSandbox = Boolean(connectorName && /sandbox|pluggy bank/i.test(connectorName));
+      setPluggyStatus(
+        data.connected
+          ? isSandbox
+            ? "Pluggy Sandbox · dados sintéticos"
+            : connectorName
+              ? "Conectado · " + connectorName
+              : "Pluggy conectada · origem não identificada"
+          : null,
+      );
+    } catch (cause) {
+      setPluggyConnected(false);
+      setPluggyAccounts([]);
+      setPluggyTransactions([]);
+      setPluggyStatus(null);
+      setPluggyInstitution(null);
+      setPluggyLoadError(
+        cause instanceof Error ? cause.message : "Falha ao consultar conexão Pluggy.",
+      );
+      throw cause;
+    } finally {
+      setPluggyLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPluggy().catch(() => undefined);
+  }, []);
+  const [PluggyConnectComponent, setPluggyConnectComponent] = useState<ComponentType<{
+    connectToken: string;
+    includeSandbox: boolean;
+    onSuccess: (event: { item: { id: string } }) => void;
+    onError: (error?: unknown) => void;
+    onClose: () => void;
+  }> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -80,9 +156,12 @@ function Index() {
         )
       )
         setConvs(saved);
-      else setError("Não foi possível recuperar o histórico. Você pode iniciar uma nova conversa.");
+      else
+        setError(
+          "NÃ£o foi possÃ­vel recuperar o histÃ³rico. VocÃª pode iniciar uma nova conversa.",
+        );
     } catch {
-      setError("Não foi possível recuperar o histórico. Você pode iniciar uma nova conversa.");
+      setError("NÃ£o foi possÃ­vel recuperar o histÃ³rico. VocÃª pode iniciar uma nova conversa.");
     }
     inputRef.current?.focus();
   }, []);
@@ -92,7 +171,7 @@ function Index() {
       localStorage.setItem(KEY, JSON.stringify(next));
     } catch {
       setError(
-        "O histórico não pôde ser salvo neste navegador. A conversa continua disponível nesta sessão.",
+        "O histÃ³rico nÃ£o pÃ´de ser salvo neste navegador. A conversa continua disponÃ­vel nesta sessÃ£o.",
       );
     }
   };
@@ -106,7 +185,45 @@ function Index() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, typing]);
+  const connectBank = async () => {
+    try {
+      setError("");
+      setConnecting(true);
+      const response = await fetch("/api/pluggy-token", {
+        method: "POST",
+      });
 
+      const data = (await response.json()) as {
+        accessToken?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.accessToken) {
+        throw new Error(data.error ?? "NÃ£o foi possÃ­vel iniciar a conexÃ£o bancÃ¡ria.");
+      }
+
+      const { PluggyConnect } = await import("react-pluggy-connect");
+      setPluggyConnectComponent(
+        () =>
+          PluggyConnect as ComponentType<{
+            connectToken: string;
+            includeSandbox: boolean;
+            onSuccess: (event: { item: { id: string } }) => void;
+            onError: (error?: unknown) => void;
+            onClose: () => void;
+          }>,
+      );
+      setPluggyToken(data.accessToken);
+    } catch (cause) {
+      setError(
+        cause instanceof Error && cause.message
+          ? cause.message
+          : "Erro inesperado ao iniciar conexÃ£o Pluggy.",
+      );
+    } finally {
+      setConnecting(false);
+    }
+  };
   const send = (text: string) => {
     const t = text.trim();
     if (!t || typing) return;
@@ -125,7 +242,7 @@ function Index() {
     persist(withUser);
     setInput("");
     setTyping(true);
-    // Ponto de integração futura: substituir answer() por chamada ao backend.
+    // Ponto de integraÃ§Ã£o futura: substituir answer() por chamada ao backend.
     setTimeout(() => {
       const reply: Msg = { id: uid(), role: "assistant", text: answer(t) };
       setConvs((prev) => {
@@ -144,225 +261,417 @@ function Index() {
     setActiveId(null);
     setShowHistory(false);
     setError("");
-    setView("chat");
+    setSection("chat");
     inputRef.current?.focus();
   };
 
+  const provider: FinanceDataProvider = pluggyConnected
+    ? {
+        mode: "pluggy",
+        getAccounts: () =>
+          pluggyAccounts.map((account): DemoAccount => ({
+            id: account.id,
+            name: account.name ?? "Nome não informado",
+            type:
+              account.type === "CREDIT"
+                ? "credit"
+                : account.subtype === "SAVINGS_ACCOUNT"
+                  ? "savings"
+                  : "checking",
+            currency: account.currencyCode ?? null,
+            ...(account.balance != null ? { balance: account.balance } : {}),
+            ...(account.type === "BANK" && account.balance != null
+              ? { available: account.balance }
+              : {}),
+            ...(account.type === "CREDIT" && account.balance != null
+              ? { debt: account.balance }
+              : {}),
+            ...(account.creditData?.availableCreditLimit != null
+              ? { availableCredit: account.creditData.availableCreditLimit }
+              : {}),
+          })),
+        getTransactions: () => {
+          const accountTypes = new Map(pluggyAccounts.map((account) => [account.id, account.type]));
+          return pluggyTransactions.map((transaction): DemoTransaction => ({
+            id: transaction.id,
+            accountId: transaction.accountId,
+            date: transaction.date.slice(0, 10),
+            description: transaction.description ?? "Movimentação",
+            amount:
+              accountTypes.get(transaction.accountId) === "CREDIT"
+                ? transaction.amount
+                : -transaction.amount,
+            category: transaction.category ?? "",
+            ...(transaction.currencyCode ? { currency: transaction.currencyCode } : {}),
+          }));
+        },
+      }
+    : demoProvider;
+
+  const disconnectBank = async () => {
+    if (
+      !window.confirm(
+        "Desconectar esta instituição? O consentimento e o item vinculado serão removidos.",
+      )
+    )
+      return;
+    try {
+      const response = await fetch("/api/pluggy-session", { method: "DELETE" });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Não foi possível desconectar.");
+      setError("Instituição desconectada.");
+      await loadPluggy();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível desconectar.");
+    }
+  };
+
   return (
-    <div className="flex h-dvh bg-background font-sans">
-      {/* Histórico */}
+    <div className="nexora-shell">
+      <button
+        className={"nexora-mobile-scrim" + (showHistory ? " is-open" : "")}
+        aria-label="Fechar navegação"
+        onClick={() => setShowHistory(false)}
+        tabIndex={showHistory ? 0 : -1}
+      />
       <aside
-        className={`${showHistory ? "flex" : "hidden"} fixed inset-0 z-30 flex-col bg-sidebar text-sidebar-foreground md:static md:flex md:w-72`}
+        className={"nexora-sidebar" + (showHistory ? " is-open" : "")}
+        aria-label="Navegação principal"
       >
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2 font-display text-lg font-semibold">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-              <Landmark className="h-4 w-4" />
-            </span>
-            FinChat AI
+        <div className="nexora-brand">
+          <span className="nexora-brand-mark">
+            <ChartNoAxesCombined aria-hidden="true" />
+          </span>
+          <div>
+            <div className="nexora-brand-name">Nexora</div>
           </div>
           <Button
+            className="ml-auto md:hidden"
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            aria-label="Fechar menu"
             onClick={() => setShowHistory(false)}
-            aria-label="Fechar histórico"
           >
-            <X className="h-5 w-5" />
+            <X />
           </Button>
         </div>
-        <div className="px-4">
-          <Button
-            onClick={newChat}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-sidebar-primary py-2.5 text-sm font-semibold text-sidebar-primary-foreground transition hover:opacity-90"
+
+        <nav className="nexora-nav">
+          <button
+            className="nexora-nav-item"
+            aria-current={section === "overview" ? "page" : undefined}
+            onClick={() => {
+              setSection("overview");
+              setShowHistory(false);
+            }}
           >
-            <Plus className="h-4 w-4" /> Nova conversa
-          </Button>
-        </div>
-        <p className="px-4 pb-2 pt-6 text-xs uppercase tracking-wider opacity-60">Histórico</p>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
-          {convs.length === 0 && <p className="px-2 text-sm opacity-60">Nenhuma conversa ainda.</p>}
-          {[...convs]
-            .sort((a, b) => b.updatedAt - a.updatedAt)
-            .map((c) => (
-              <div
-                key={c.id}
-                className={`group flex items-center rounded-lg ${c.id === activeId ? "bg-sidebar-accent" : "hover:bg-sidebar-accent"}`}
-              >
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setActiveId(c.id);
-                    setShowHistory(false);
-                  }}
-                  className="min-w-0 flex-1 truncate px-3 py-2 text-left text-sm"
-                >
-                  {c.title}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Excluir conversa"
-                  onClick={() => {
-                    persist(convs.filter((x) => x.id !== c.id));
-                    if (c.id === activeId) setActiveId(null);
-                  }}
-                  className="px-2 opacity-50 hover:opacity-100"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+            <LayoutDashboard /> Visão geral
+          </button>
+          <button
+            className="nexora-nav-item"
+            aria-current={section === "accounts" ? "page" : undefined}
+            onClick={() => {
+              setSection("accounts");
+              setShowHistory(false);
+            }}
+          >
+            <Landmark /> Contas
+          </button>
+          <button
+            className="nexora-nav-item"
+            aria-current={section === "transactions" ? "page" : undefined}
+            onClick={() => {
+              setSection("transactions");
+              setShowHistory(false);
+            }}
+          >
+            <ArrowLeftRight /> Transações
+          </button>
+          <button
+            className="nexora-nav-item"
+            aria-current={section === "chat" ? "page" : undefined}
+            onClick={() => {
+              setSection("chat");
+              setShowHistory(false);
+            }}
+          >
+            <MessageCircle /> Assistente
+          </button>
         </nav>
+
+        {section === "chat" && (
+          <div className="mt-7 min-h-0 flex-1">
+            <div className="flex items-center justify-between px-2 pb-2">
+              <div className="nexora-nav-label !p-0">Conversas</div>
+              <button
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                aria-label="Nova conversa"
+                onClick={newChat}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <nav className="grid max-h-[34vh] gap-1 overflow-y-auto">
+              {convs.length === 0 && (
+                <p className="px-2 py-3 text-xs text-muted-foreground">
+                  Seu histórico aparecerá aqui.
+                </p>
+              )}
+              {[...convs]
+                .sort((a, b) => b.updatedAt - a.updatedAt)
+                .map((conversation) => (
+                  <div key={conversation.id} className="group flex min-w-0 items-center">
+                    <button
+                      className="min-w-0 flex-1 truncate rounded-lg px-2.5 py-2 text-left text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                      aria-current={conversation.id === activeId ? "page" : undefined}
+                      onClick={() => {
+                        setActiveId(conversation.id);
+                        setShowHistory(false);
+                      }}
+                    >
+                      {conversation.title}
+                    </button>
+                    <button
+                      className="rounded-md p-1.5 text-muted-foreground opacity-0 hover:bg-sidebar-accent hover:text-foreground focus:opacity-100 group-hover:opacity-100"
+                      aria-label="Excluir conversa"
+                      onClick={() => {
+                        persist(convs.filter((entry) => entry.id !== conversation.id));
+                        if (conversation.id === activeId) setActiveId(null);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+            </nav>
+          </div>
+        )}
+
+        <div className="nexora-sidebar-bottom">
+          <div className="nexora-connection-card">
+            <div className="nexora-connection-title">
+              <Landmark /> {pluggyConnected ? "Conexão ativa" : "Conecte suas contas"}
+            </div>
+            <p className="nexora-connection-copy">
+              {pluggyConnected
+                ? /sandbox|dados sintéticos/i.test(pluggyStatus ?? "")
+                  ? "Sandbox conectado"
+                  : "Conectado"
+                : "Conecte sua conta para visualizar suas informações financeiras."}{" "}
+            </p>
+            {!pluggyConnected && (
+              <Button
+                className="nexora-connect-button"
+                onClick={() => void connectBank()}
+                disabled={connecting || pluggyLoading}
+              >
+                {connecting ? (
+                  <>
+                    <LoaderCircle className="animate-spin" /> Preparando…
+                  </>
+                ) : (
+                  "Conectar instituição"
+                )}
+              </Button>
+            )}
+          </div>
+          <button
+            className="nexora-nav-item"
+            onClick={() => void loadPluggy().catch(() => undefined)}
+            disabled={pluggyLoading}
+          >
+            <RefreshCw className={pluggyLoading ? "animate-spin" : ""} /> Atualizar conexão
+          </button>
+        </div>
       </aside>
 
-      {/* Chat */}
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
-          <div className="flex items-center gap-2">
+      <main className="nexora-main">
+        <header className="nexora-topbar">
+          <div className="flex min-w-0 items-center gap-3">
             <Button
+              className="nexora-menu-button"
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              aria-label="Abrir menu"
               onClick={() => setShowHistory(true)}
-              aria-label="Histórico"
             >
-              <History className="h-5 w-5" />
+              <Menu />
             </Button>
-            <span className="font-display font-semibold md:hidden">FinChat AI</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">
-              Demonstração · Dados fictícios
+          <div className="nexora-topbar-actions">
+            <span className="nexora-status" role="status" aria-live="polite">
+              <span className="nexora-status-dot" />
+              {pluggyLoading
+                ? "Carregando suas informações…"
+                : pluggyConnected
+                  ? /sandbox|dados sintéticos/i.test(pluggyStatus ?? "")
+                    ? "Sandbox conectado"
+                    : "Conectado"
+                  : pluggyLoadError
+                    ? "Conexão indisponível"
+                    : "Ambiente de demonstração"}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setView(view === "chat" ? "dashboard" : "chat")}
-              aria-label={view === "chat" ? "Abrir painel" : "Voltar ao chat"}
-              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs font-semibold transition hover:border-primary"
-            >
-              {view === "chat" ? (
-                <LayoutDashboard className="h-3.5 w-3.5" />
-              ) : (
-                <MessageSquare className="h-3.5 w-3.5" />
-              )}
-              {view === "chat" ? "Painel" : "Chat"}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={newChat}
-              className="md:hidden"
-              aria-label="Nova conversa"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
+            {!pluggyConnected && pluggyLoadError && (
+              <span className="nexora-demo-inline">Ambiente de demonstração</span>
+            )}
+            {pluggyConnected && (
+              <Button variant="outline" size="sm" onClick={() => void disconnectBank()}>
+                Desconectar
+              </Button>
+            )}
           </div>
         </header>
 
         {error && (
           <div
-            role="alert"
-            className="flex items-center gap-2 border-b border-border bg-muted px-4 py-3 text-sm text-foreground"
+            className="mx-4 mt-4 flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm"
+            role="status"
           >
-            <AlertCircle className="h-4 w-4 shrink-0" />
+            <AlertCircle className="h-4 w-4 text-primary" />
             <span className="flex-1">{error}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Fechar aviso"
-              onClick={() => setError("")}
-            >
-              <X />
-            </Button>
+            <button aria-label="Fechar aviso" onClick={() => setError("")}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {pluggyLoadError && (
+          <div className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-6xl nexora-alert" role="alert">
+            Não foi possível carregar os dados. Tente novamente.
           </div>
         )}
 
-        {view === "dashboard" ? (
-          <div className="flex-1 overflow-y-auto">
-            <Dashboard />
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
-              {messages.length === 0 && (
-                <div className="space-y-6">
-                  <div className="border-b border-border pb-6">
-                    <h1 className="font-display text-3xl font-semibold">FinChat AI</h1>
-                    <p className="mt-2 max-w-md opacity-85">
-                      Suas finanças de exemplo, em uma conversa. Dados locais fictícios no formato
-                      Plaid Sandbox, sem conexão ativa com a Plaid ou bancos.
-                    </p>
-                  </div>
+        <div className="nexora-content">
+          {section !== "chat" ? (
+            <Dashboard
+              section={section}
+              provider={provider}
+              institution={pluggyInstitution}
+              loading={pluggyLoading}
+              error={null}
+              onRefresh={() => void loadPluggy().catch(() => undefined)}
+              onConnect={!pluggyConnected ? () => void connectBank() : undefined}
+            />
+          ) : (
+            <div className="nexora-chat-area">
+              <div className="nexora-chat-intro">
+                <p className="nexora-eyebrow">NEXORA INTELLIGENCE</p>
+                <h1>Seu dinheiro, em contexto.</h1>
+                <p className="nexora-subtitle">
+                  Faça perguntas e explore os temas financeiros disponíveis nesta experiência.
+                </p>
+              </div>
+              <div className="nexora-demo-banner">
+                <span className="nexora-demo-tag">CHAT DEMO</span>
+                <span>
+                  As respostas do assistente usam somente dados sintéticos de demonstração; seus
+                  dados Pluggy não são usados neste chat.
+                </span>
+              </div>
+              <div className="nexora-chat-thread">
+                {messages.length === 0 && (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {SUGGESTIONS.map((s) => (
+                    {SUGGESTIONS.map((suggestion) => (
                       <Button
+                        key={suggestion}
                         variant="outline"
-                        key={s}
-                        onClick={() => send(s)}
-                        className="h-auto justify-start whitespace-normal rounded-lg border border-border bg-card p-4 text-left text-sm font-medium shadow-soft transition hover:border-primary"
+                        className="h-auto min-h-12 justify-start whitespace-normal rounded-xl px-4 py-3 text-left text-xs leading-relaxed"
+                        onClick={() => send(suggestion)}
                       >
-                        {s}
+                        {suggestion}
                       </Button>
                     ))}
                   </div>
-                  <Dashboard compact />
-                </div>
-              )}
-              {messages.map((m) => (
-                <ChatMessage key={m.id} msg={m} />
-              ))}
-              {typing && (
-                <div
-                  role="status"
-                  className="flex items-center gap-2 pl-11 text-sm text-muted-foreground"
-                >
-                  <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />{" "}
-                  Preparando resposta…
-                </div>
-              )}
-              <div ref={endRef} />
-            </div>
-          </div>
-        )}
-
-        {view === "chat" && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="border-t border-border bg-card p-3"
-          >
-            <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-input bg-background p-2 focus-within:ring-2 focus-within:ring-ring">
-              <textarea
-                aria-label="Mensagem"
-                ref={inputRef}
-                rows={1}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    send(input);
-                  }
+                )}
+                {messages.map((message) => (
+                  <ChatMessage key={message.id} msg={message} />
+                ))}
+                {typing && (
+                  <div
+                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                    role="status"
+                  >
+                    <LoaderCircle className="h-4 w-4 animate-spin" /> Preparando resposta…
+                  </div>
+                )}
+                <div ref={endRef} />
+              </div>
+              <form
+                className="nexora-chat-composer"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  send(input);
                 }}
-                placeholder="Pergunte algo sobre suas finanças…"
-                className="max-h-32 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none"
-              />
-              <Button
-                type="submit"
-                disabled={!input.trim() || typing}
-                aria-label="Enviar"
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition disabled:opacity-40"
               >
-                <SendHorizontal className="h-4 w-4" />
-              </Button>
+                <div className="flex items-end gap-2">
+                  <textarea
+                    aria-label="Mensagem"
+                    ref={inputRef}
+                    rows={2}
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" &&
+                        !event.shiftKey &&
+                        !event.nativeEvent.isComposing
+                      ) {
+                        event.preventDefault();
+                        send(input);
+                      }
+                    }}
+                    placeholder="Pergunte sobre o exemplo financeiro…"
+                  />
+                  <Button
+                    type="submit"
+                    aria-label="Enviar mensagem"
+                    disabled={!input.trim() || typing}
+                  >
+                    <SendHorizontal />
+                  </Button>
+                </div>
+                <p className="mb-0 mt-1 px-3 text-[10px] text-muted-foreground">
+                  Enter envia · Shift + Enter quebra a linha
+                </p>
+              </form>
             </div>
-          </form>
-        )}
+          )}
+        </div>
       </main>
+
+      {pluggyToken && PluggyConnectComponent && (
+        <div className="fixed inset-0 z-[70] bg-background">
+          <PluggyConnectComponent
+            connectToken={pluggyToken}
+            includeSandbox={true}
+            onSuccess={({ item }: { item: { id: string } }) => {
+              setPluggyToken(null);
+              void fetch("/api/pluggy-session", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ itemId: item.id }),
+              })
+                .then(async (response) => {
+                  const data = (await response.json()) as { error?: string };
+                  if (!response.ok)
+                    throw new Error(data.error ?? "Não foi possível salvar a conexão.");
+                  await loadPluggy();
+                  setSection("overview");
+                  setError("Conexão bancária salva com sucesso.");
+                })
+                .catch((cause: unknown) =>
+                  setError(
+                    cause instanceof Error ? cause.message : "Não foi possível salvar a conexão.",
+                  ),
+                );
+            }}
+            onError={() => {
+              setPluggyToken(null);
+              setError("A Pluggy não conseguiu concluir a conexão. Tente novamente.");
+            }}
+            onClose={() => setPluggyToken(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }

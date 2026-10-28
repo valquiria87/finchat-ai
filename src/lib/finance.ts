@@ -5,7 +5,7 @@ export interface DemoAccount {
   id: string;
   name: string;
   type: AccountType;
-  currency: "USD";
+  currency: string | null;
   /** Saldo da conta (contas correntes/poupança). */
   balance?: number;
   /** Dinheiro disponível (contas correntes/poupança). */
@@ -19,31 +19,36 @@ export interface DemoAccount {
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     id: "chk",
-    name: "Plaid Checking",
+    name: "Conta corrente",
     type: "checking",
-    currency: "USD",
+    currency: "BRL",
     balance: 110,
     available: 100,
   },
   {
     id: "sav",
-    name: "Plaid Saving",
+    name: "Conta poupança",
     type: "savings",
-    currency: "USD",
+    currency: "BRL",
     balance: 210,
     available: 200,
   },
-  { id: "cc", name: "Plaid Credit Card", type: "credit", currency: "USD", debt: 410 },
+  {
+    id: "cc",
+    name: "Cartão de crédito",
+    type: "credit",
+    currency: "BRL",
+    debt: 410,
+  },
   {
     id: "bcc",
-    name: "Plaid Business Credit Card",
+    name: "Cartão de crédito empresarial",
     type: "credit",
-    currency: "USD",
+    currency: "BRL",
     debt: 5020,
     availableCredit: 4980,
   },
 ];
-
 /** Transação fictícia. Mesma convenção de sinais do Plaid (src/lib/plaid): amount > 0 = saída (despesa); amount < 0 = entrada. */
 export interface DemoTransaction {
   id: string;
@@ -53,6 +58,7 @@ export interface DemoTransaction {
   description: string;
   amount: number;
   category: string;
+  currency?: string;
 }
 
 export const DEMO_TRANSACTIONS: DemoTransaction[] = [
@@ -132,17 +138,27 @@ export function latestTransactions(txs: DemoTransaction[], n = 5): DemoTransacti
 }
 
 /** Soma apenas despesas (saídas) por categoria, em ordem decrescente. Entradas nunca entram. */
-export function spendingByCategory(txs: DemoTransaction[]): { category: string; total: number }[] {
-  const m = new Map<string, number>();
+export function spendingByCategory(
+  txs: DemoTransaction[],
+): { category: string; total: number; currency?: string }[] {
+  const m = new Map<string, { category: string; total: number; currency?: string }>();
   for (const t of txs)
-    if (isExpense(t))
-      m.set(t.category, Math.round(((m.get(t.category) ?? 0) + t.amount) * 100) / 100);
-  return [...m].map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
+    if (isExpense(t)) {
+      const key = `${t.category}\u0000${t.currency ?? ""}`;
+      const existing = m.get(key);
+      m.set(key, {
+        category: t.category,
+        total: Math.round(((existing?.total ?? 0) + t.amount) * 100) / 100,
+        ...(t.currency ? { currency: t.currency } : {}),
+      });
+    }
+  return [...m.values()].sort((a, b) => b.total - a.total);
 }
 
 /** Origem dos dados do chat. Hoje só existe a demonstração; uma fonte real futura implementa a mesma interface. */
+
 export interface FinanceDataProvider {
-  mode: "demo";
+  mode: "demo" | "pluggy";
   getAccounts(): DemoAccount[];
   getTransactions(): DemoTransaction[];
 }
@@ -158,10 +174,13 @@ function fmtDate(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
-export function formatUSD(value: number): string {
-  return (
-    "US$ " + value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  );
+export function formatBRL(value: number): string {
+  return value
+    .toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })
+    .replace(/\u00a0/g, " ");
 }
 
 const isBank = (a: DemoAccount) => a.type === "checking" || a.type === "savings";
@@ -220,7 +239,7 @@ export function detectIntent(question: string): Intent {
   return "unknown";
 }
 
-const fmtOpt = (v: number | undefined) => (v != null ? formatUSD(v) : "não informado");
+const fmtOpt = (v: number | undefined) => (v != null ? formatBRL(v) : "não informado");
 
 export function answer(
   question: string,
@@ -229,7 +248,7 @@ export function answer(
 ): string {
   const bank = accounts.filter(isBank);
   const cards = accounts.filter((a) => a.type === "credit");
-  const cash = formatUSD(totalAvailableCash(accounts));
+  const cash = formatBRL(totalAvailableCash(accounts));
 
   switch (detectIntent(question)) {
     case "summary": {
@@ -237,7 +256,7 @@ export function answer(
         return "Não há dados financeiros disponíveis nesta demonstração." + DEMO_NOTE;
       const spending = spendingByCategory(txs).reduce((sum, c) => sum + c.total, 0);
       return (
-        `**Resumo financeiro da demonstração**\n\n- **Contas de exemplo**: ${accounts.length}\n- **Dinheiro bancário disponível**: ${cash}\n- **Dívida dos cartões**: ${formatUSD(totalCardDebt(accounts))}\n- **Movimentações**: ${txs.length}\n- **Despesas registradas**: ${formatUSD(spending)}\n\nO dinheiro disponível considera apenas contas corrente e poupança. Dívidas e limites de cartão ficam separados. As movimentações são um recorte demonstrativo, não um extrato completo para reconciliar os saldos.` +
+        `**Resumo financeiro da demonstração**\n\n- **Contas de exemplo**: ${accounts.length}\n- **Dinheiro bancário disponível**: ${cash}\n- **Dívida dos cartões**: ${formatBRL(totalCardDebt(accounts))}\n- **Movimentações**: ${txs.length}\n- **Despesas registradas**: ${formatBRL(spending)}\n\nO dinheiro disponível considera apenas contas corrente e poupança. Dívidas e limites de cartão ficam separados. As movimentações são um recorte demonstrativo, não um extrato completo para reconciliar os saldos.` +
         DEMO_NOTE
       );
     }
@@ -272,7 +291,7 @@ export function answer(
     case "card_debt": {
       const lines = cards.map((a) => `- **${a.name}**: dívida atual ${fmtOpt(a.debt)}`);
       return (
-        `A dívida atual dos cartões de exemplo soma **${formatUSD(totalCardDebt(accounts))}**:\n\n${lines.join("\n")}\n\n` +
+        `A dívida atual dos cartões de exemplo soma **${formatBRL(totalCardDebt(accounts))}**:\n\n${lines.join("\n")}\n\n` +
         "Esse valor é o que se deve aos emissores e não é descontado nem somado ao seu dinheiro disponível." +
         DEMO_NOTE
       );
@@ -295,7 +314,7 @@ export function answer(
       const names = new Map(accounts.map((a) => [a.id, a.name]));
       const lines = latestTransactions(txs).map(
         (t) =>
-          `- ${fmtDate(t.date)} · **${t.description}** · ${isExpense(t) ? "despesa" : "entrada"} ${isExpense(t) ? "−" : "+"}${formatUSD(Math.abs(t.amount))} · ${t.category} · ${names.get(t.accountId) ?? "conta não informada"}`,
+          `- ${fmtDate(t.date)} · **${t.description}** · ${isExpense(t) ? "despesa" : "entrada"} ${isExpense(t) ? "−" : "+"}${formatBRL(Math.abs(t.amount))} · ${t.category} · ${names.get(t.accountId) ?? "conta não informada"}`,
       );
       return (
         `Estas são as ${lines.length} transações mais recentes dos dados de demonstração:\n\n${lines.join("\n")}\n\n` +
@@ -311,9 +330,9 @@ export function answer(
           DEMO_NOTE
         );
       const total = cats.reduce((s, c) => s + c.total, 0);
-      const lines = cats.map((c) => `- **${c.category}**: ${formatUSD(c.total)}`);
+      const lines = cats.map((c) => `- **${c.category}**: ${formatBRL(c.total)}`);
       return (
-        `Seus gastos por categoria nas transações de demonstração somam **${formatUSD(total)}**:\n\n${lines.join("\n")}\n\n` +
+        `Seus gastos por categoria nas transações de demonstração somam **${formatBRL(total)}**:\n\n${lines.join("\n")}\n\n` +
         "O cálculo considera apenas despesas (contas bancárias e cartões); entradas como salário e rendimentos não entram." +
         DEMO_NOTE
       );
