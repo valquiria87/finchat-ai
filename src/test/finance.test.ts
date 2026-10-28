@@ -5,7 +5,7 @@ import {
   spendingByCategory,
   answer,
   detectIntent,
-  formatUSD,
+  formatBRL,
   totalAvailableCash,
   DEMO_ACCOUNTS,
 } from "@/lib/finance";
@@ -18,18 +18,18 @@ describe("regras financeiras", () => {
   });
   it("o resumo separa dinheiro bancário, dívida e despesas", () => {
     const result = answer("Mostre um resumo financeiro");
-    expect(result).toContain("**Dinheiro bancário disponível**: US$ 300,00");
-    expect(result).toContain("**Dívida dos cartões**: US$ 5.430,00");
-    expect(result).toContain("**Despesas registradas**: US$ 490,80");
+    expect(result).toContain("**Dinheiro bancário disponível**: R$ 300,00");
+    expect(result).toContain("**Dívida dos cartões**: R$ 5.430,00");
+    expect(result).toContain("**Despesas registradas**: R$ 490,80");
     expect(result).toContain("**Movimentações**: 8");
   });
   it("contas e resumo vazios não inventam dados", () => {
     expect(answer("Resuma minhas contas", [], [])).toContain("Não há contas");
     expect(answer("Mostre um resumo financeiro", [], [])).toContain("Não há dados financeiros");
   });
-  it("formata em US$ com vírgula decimal", () => {
-    expect(formatUSD(110)).toBe("US$ 110,00");
-    expect(formatUSD(5020)).toBe("US$ 5.020,00");
+  it("formata em R$ com vírgula decimal", () => {
+    expect(formatBRL(110)).toBe("R$ 110,00");
+    expect(formatBRL(5020)).toBe("R$ 5.020,00");
   });
   it("dinheiro disponível não inclui dívidas nem limite", () => {
     expect(totalAvailableCash(DEMO_ACCOUNTS)).toBe(300);
@@ -51,11 +51,11 @@ describe("perguntas sobre cartão", () => {
     expect(r).not.toContain("Não há transações");
   });
   it("usa o crédito informado do cartão empresarial", () => {
-    expect(r).toContain("crédito disponível US$ 4.980,00");
+    expect(r).toContain("crédito disponível R$ 4.980,00");
   });
   it("não inventa o crédito do Plaid Credit Card", () => {
     expect(r).toContain(
-      "Plaid Credit Card**: dívida atual US$ 410,00; limite total não informado; crédito disponível não informado",
+      "Cartão de crédito**: dívida atual R$ 410,00; limite total não informado; crédito disponível não informado",
     );
   });
 });
@@ -78,24 +78,24 @@ describe("regressão: cada pergunta recebe sua intenção", () => {
     expect(detectIntent(q)).toBe(intent);
   });
 
-  it("dinheiro disponível sem limite soma só contas bancárias: US$ 300,00", () => {
+  it("dinheiro disponível sem limite soma só contas bancárias: R$ 300,00", () => {
     const r = answer(
       "Quanto dinheiro tenho disponível, sem contar o limite dos cartões de crédito?",
     );
-    expect(r).toContain("**US$ 300,00**");
+    expect(r).toContain("**R$ 300,00**");
     expect(r).not.toContain("Sim, um cartão de crédito permite");
     expect(r).not.toContain("4.980");
   });
-  it("dívida dos cartões soma US$ 5.430,00", () => {
-    expect(answer("Qual é a dívida atual dos meus cartões?")).toContain("**US$ 5.430,00**");
+  it("dívida dos cartões soma R$ 5.430,00", () => {
+    expect(answer("Qual é a dívida atual dos meus cartões?")).toContain("**R$ 5.430,00**");
   });
   it("limite não inventa valores", () => {
     const r = answer("Qual é o limite total do meu cartão?");
     expect(r).toContain(
-      "Plaid Credit Card**: limite total não informado; crédito disponível não informado",
+      "Cartão de crédito**: limite total não informado; crédito disponível não informado",
     );
     expect(r).toContain(
-      "Plaid Business Credit Card**: limite total não informado; crédito disponível US$ 4.980,00",
+      "Cartão de crédito empresarial**: limite total não informado; crédito disponível R$ 4.980,00",
     );
   });
   it("saldo disponível ausente não é inventado nem somado", () => {
@@ -117,8 +117,8 @@ describe("transações e gastos por categoria", () => {
   });
   it("resposta de transações mostra despesa e entrada com sinais", () => {
     const r = answer("Quais foram minhas últimas transações?");
-    expect(r).toContain("18/10/2026 · **Combustível** · despesa −US$ 150,00");
-    expect(r).toContain("**Rendimento da poupança** · entrada +US$ 1,75");
+    expect(r).toContain("18/10/2026 · **Combustível** · despesa −R$ 150,00");
+    expect(r).toContain("**Rendimento da poupança** · entrada +R$ 1,75");
     expect(r).not.toContain("Salário");
   });
   it("gastos por categoria somam só despesas", () => {
@@ -129,12 +129,12 @@ describe("transações e gastos por categoria", () => {
       { category: "Serviços", total: 49 },
     ]);
   });
-  it("resposta de categorias traz total US$ 490,80 sem renda", () => {
+  it("resposta de categorias traz total R$ 490,80 sem renda", () => {
     const r = answer("Quanto gastei por categoria?");
-    expect(r).toContain("**US$ 490,80**");
+    expect(r).toContain("**R$ 490,80**");
     expect(r).not.toContain("**Renda**");
   });
   it("transações não alteram o dinheiro disponível", () => {
-    expect(answer("Qual é meu saldo disponível?")).toContain("**US$ 300,00**");
+    expect(answer("Qual é meu saldo disponível?")).toContain("**R$ 300,00**");
   });
 });
