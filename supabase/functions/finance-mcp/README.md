@@ -17,7 +17,7 @@ Servidor MCP via Supabase Edge Function, autenticado por OAuth e com ferramentas
 - `accounts`: `id`, `user_id`, `pluggy_item_id`, `pluggy_account_id`, `name`, `type`, `balance`, `currency`, `credit_limit`, `updated_at`.
 - `transactions`: `id`, `user_id`, `account_id`, `pluggy_transaction_id`, `date`, `description`, `amount`, `currency`, `category`, `updated_at`.
 
-O fluxo de sincronização grava despesas com `amount > 0` e entradas com `amount < 0`. O MCP segue essa convenção, não depende de uma coluna `type` na tabela `transactions` e mantém os agregados separados por moeda. Confirme os nomes e tipos acima no banco remoto antes do uso com dados reais.
+O fluxo de sincronização normaliza a direção fornecida pela Pluggy para `type = DEBITO` com `amount > 0` e `type = CREDITO` com `amount < 0`. As ferramentas MCP classificam movimentações pela coluna `type` e mantêm os agregados separados por moeda. Se a Pluggy não fornecer uma direção reconhecida, o fallback usa o sinal do valor recebido. Confirme os nomes e tipos acima no banco remoto antes do uso com dados reais.
 
 Todas as ferramentas são consultas. Não há ferramentas para alterar registros, sincronizar dados, movimentar dinheiro ou mudar saldos.
 
