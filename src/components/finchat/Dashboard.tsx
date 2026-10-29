@@ -42,7 +42,9 @@ export function Dashboard({
 }) {
   const [transactionLimit, setTransactionLimit] = useState(50);
   const [transactionSearch, setTransactionSearch] = useState("");
-  const [transactionDirection, setTransactionDirection] = useState<"all" | "inflow" | "outflow">("all");
+  const [transactionDirection, setTransactionDirection] = useState<"all" | "inflow" | "outflow">(
+    "all",
+  );
   const [transactionMonth, setTransactionMonth] = useState("");
   useEffect(() => setTransactionLimit(50), [section]);
   const accounts = provider.getAccounts();
@@ -82,7 +84,8 @@ export function Dashboard({
     .join(" · ");
   const filteredTransactions = txs.filter((transaction) => {
     const query = transactionSearch.trim().toLocaleLowerCase("pt-BR");
-    const accountName = accounts.find((account) => account.id === transaction.accountId)?.name ?? "";
+    const accountName =
+      accounts.find((account) => account.id === transaction.accountId)?.name ?? "";
     const matchesSearch =
       !query ||
       [transaction.description, transaction.category, accountName].some((value) =>
@@ -106,18 +109,20 @@ export function Dashboard({
     };
     const rows = [
       ["Data", "Descrição", "Categoria", "Conta", "Tipo", "Valor", "Moeda"],
-      ...latestTransactions(filteredTransactions, filteredTransactions.length).map((transaction) => {
-        const account = accounts.find((entry) => entry.id === transaction.accountId);
-        return [
-          transaction.date,
-          transaction.description,
-          transaction.category || "Categoria não informada",
-          account?.name ?? "Conta não identificada",
-          isExpense(transaction) ? "Saída" : "Entrada",
-          Math.abs(transaction.amount).toFixed(2).replace(".", ","),
-          transaction.currency ?? account?.currency ?? "",
-        ];
-      }),
+      ...latestTransactions(filteredTransactions, filteredTransactions.length).map(
+        (transaction) => {
+          const account = accounts.find((entry) => entry.id === transaction.accountId);
+          return [
+            transaction.date,
+            transaction.description,
+            transaction.category || "Categoria não informada",
+            account?.name ?? "Conta não identificada",
+            isExpense(transaction) ? "Saída" : "Entrada",
+            Math.abs(transaction.amount).toFixed(2).replace(".", ","),
+            transaction.currency ?? account?.currency ?? "",
+          ];
+        },
+      ),
     ];
     const csv = "\uFEFF" + rows.map((row) => row.map(escapeCsv).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
