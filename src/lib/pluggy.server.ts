@@ -372,15 +372,22 @@ export async function fetchPluggyItem(itemId: string): Promise<PluggyItemDetails
   return (await response.json()) as PluggyItemDetails;
 }
 
-function logSafeWebhookEvent(event: string, eventId: string, _itemId?: string, detail?: string) {
-  console.info(JSON.stringify({
-    timestamp: new Date().toISOString(),
-    level: "info",
-    service: "pluggy-webhook",
-    event,
-    eventId,
-    outcome: detail ?? "accepted",
-  }));
+function logSafeWebhookEvent(
+  event: string,
+  eventId: string,
+  _itemId?: string,
+  detail?: string,
+) {
+  console.info(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "info",
+      service: "pluggy-webhook",
+      event,
+      eventId,
+      outcome: detail ?? "accepted",
+    }),
+  );
 }
 
 export type PluggyWebhookPayload = {
@@ -410,17 +417,25 @@ export async function handlePluggyWebhook(
     return Response.json({ error: "JSON do webhook malformado." }, { status: 400 });
   }
 
-  const payloadSchema = z.object({
-    event: z.string().trim().min(1).max(120),
-    eventId: z.string().regex(/^[\w-]{1,100}$/),
-    itemId: z.string().regex(/^[\w-]{1,100}$/).optional(),
-    clientUserId: z.unknown().optional(),
-    triggeredBy: z.unknown().optional(),
-    error: z.object({
-      code: z.unknown().optional(),
-      message: z.unknown().optional(),
-    }).nullable().optional(),
-  }).passthrough();
+  const payloadSchema = z
+    .object({
+      event: z.string().trim().min(1).max(120),
+      eventId: z.string().regex(/^[\w-]{1,100}$/),
+      itemId: z
+        .string()
+        .regex(/^[\w-]{1,100}$/)
+        .optional(),
+      clientUserId: z.unknown().optional(),
+      triggeredBy: z.unknown().optional(),
+      error: z
+        .object({
+          code: z.unknown().optional(),
+          message: z.unknown().optional(),
+        })
+        .nullable()
+        .optional(),
+    })
+    .passthrough();
   const parsed = payloadSchema.safeParse(body);
   if (!parsed.success) {
     console.warn(
