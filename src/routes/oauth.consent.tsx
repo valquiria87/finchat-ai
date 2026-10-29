@@ -52,9 +52,7 @@ function OAuthConsent() {
           return;
         }
 
-        const authorizationId = new URLSearchParams(window.location.search).get(
-          "authorization_id",
-        );
+        const authorizationId = new URLSearchParams(window.location.search).get("authorization_id");
         if (!authorizationId) {
           setError("Solicitação OAuth sem o identificador de autorização.");
           setLoading(false);
@@ -71,7 +69,7 @@ function OAuthConsent() {
               return;
             }
 
-            if (!( "authorization_id" in authDetails) && "redirect_url" in authDetails) {
+            if (!("authorization_id" in authDetails) && "redirect_url" in authDetails) {
               window.location.assign(authDetails.redirect_url);
               return;
             }
