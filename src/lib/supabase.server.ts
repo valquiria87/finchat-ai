@@ -4,6 +4,22 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export class SupabaseConfigError extends Error {}
 export class WebhookPersistenceError extends Error {}
 
+export function normalizePluggyTransactionDirection(transaction: {
+  amount: number;
+  type?: string | null;
+}): { amount: number; type: "DEBITO" | "CREDITO" } {
+  const direction = transaction.type?.toUpperCase();
+  if (direction === "DEBIT") {
+    return { amount: Math.abs(transaction.amount), type: "DEBITO" };
+  }
+  if (direction === "CREDIT") {
+    return { amount: -Math.abs(transaction.amount), type: "CREDITO" };
+  }
+  return transaction.amount >= 0
+    ? { amount: Math.abs(transaction.amount), type: "DEBITO" }
+    : { amount: -Math.abs(transaction.amount), type: "CREDITO" };
+}
+
 export type WebhookEventStatus = "processing" | "completed" | "failed" | "ignored";
 
 export interface WebhookEventRecord {
@@ -290,6 +306,7 @@ export async function syncPluggyFinanceData(
     const date = new Date(transaction.date);
     if (!Number.isFinite(date.getTime())) continue;
 
+    const normalizedTransaction = normalizePluggyTransactionDirection(transaction);
     const { error: transactionError } = await supabase.from("transactions").upsert(
       {
         user_id: userId,
@@ -297,20 +314,8 @@ export async function syncPluggyFinanceData(
         pluggy_transaction_id: transaction.id,
         date: date.toISOString(),
         description: transaction.description?.trim() || "Transação bancária",
-        amount:
-          transaction.type?.toUpperCase() === "DEBIT"
-            ? Math.abs(transaction.amount)
-            : transaction.type?.toUpperCase() === "CREDIT"
-              ? -Math.abs(transaction.amount)
-              : transaction.amount,
-        type:
-          transaction.type?.toUpperCase() === "DEBIT"
-            ? "DEBITO"
-            : transaction.type?.toUpperCase() === "CREDIT"
-              ? "CREDITO"
-              : transaction.amount >= 0
-                ? "DEBITO"
-                : "CREDITO",
+        amount: normalizedTransaction.amount,
+        type: normalizedTransaction.type,
         currency: transaction.currencyCode || "BRL",
         category:
           transaction.category?.trim() || categorizeTransaction(transaction.description ?? ""),
