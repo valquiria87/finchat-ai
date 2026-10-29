@@ -172,9 +172,7 @@ function ObservabilityPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3 tabular-nums">{event.attempts}</td>
-                          <td className="px-4 py-3 font-mono text-xs">
-                            {event.error_code ?? "—"}
-                          </td>
+                          <td className="px-4 py-3 font-mono text-xs">{event.error_code ?? "—"}</td>
                           <td className="whitespace-nowrap px-4 py-3">
                             {dateTime(event.created_at)}
                           </td>
@@ -191,8 +189,8 @@ function ObservabilityPage() {
 
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <ShieldCheck size={15} />
-              A tela não exibe payload bruto, descrições bancárias, saldos, item_id ou mensagens de
-              erro detalhadas.
+              A tela não exibe payload bruto, descrições bancárias, saldos,
+              item_id ou mensagens de erro detalhadas.
             </p>
           </>
         )}
