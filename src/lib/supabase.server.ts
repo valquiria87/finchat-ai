@@ -299,8 +299,7 @@ export async function syncPluggyFinanceData(
         amount: transaction.amount,
         currency: transaction.currencyCode || "BRL",
         category:
-          transaction.category?.trim() ||
-          categorizeTransaction(transaction.description ?? ""),
+          transaction.category?.trim() || categorizeTransaction(transaction.description ?? ""),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,pluggy_transaction_id" },
