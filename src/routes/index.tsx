@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { ChatMessage, type Msg } from "@/components/finchat/ChatMessage";
+import { buildFinancialInsights } from "@/lib/financial-insights";
 import { Dashboard } from "@/components/finchat/Dashboard";
 import { Button } from "@/components/ui/button";
 import {
@@ -372,9 +373,21 @@ function Index() {
     persist(withUser);
     setInput("");
     setTyping(true);
-    // Ponto de integraÃ§Ã£o futura: substituir answer() por chamada ao backend.
     setTimeout(() => {
-      const reply: Msg = { id: uid(), role: "assistant", text: answer(t) };
+      const accounts = provider.getAccounts();
+      const transactions = provider.getTransactions();
+      const normalizedQuestion = t
+        .normalize("NFD")
+        .replace(/[\\u0300-\\u036f]/g, "")
+        .toLowerCase();
+      const requestsAnalysis =
+        /\\b(analise|analisar|insight|insights|economizar|economia|reduzir gastos|oportunidades de economia)\\b/.test(
+          normalizedQuestion,
+        );
+      const replyText = requestsAnalysis
+        ? buildFinancialInsights(accounts, transactions, provider.mode)
+        : answer(t, accounts, transactions);
+      const reply: Msg = { id: uid(), role: "assistant", text: replyText };
       setConvs((prev) => {
         const next = prev.map((c) =>
           c.id === cid ? { ...c, messages: [...c.messages, reply], updatedAt: Date.now() } : c,
