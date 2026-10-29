@@ -378,10 +378,10 @@ function Index() {
       const transactions = provider.getTransactions();
       const normalizedQuestion = t
         .normalize("NFD")
-        .replace(/[\\u0300-\\u036f]/g, "")
+        .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase();
       const requestsAnalysis =
-        /\\b(analise|analisar|insight|insights|economizar|economia|reduzir gastos|oportunidades de economia)\\b/.test(
+        /\b(analise|analisar|insight|insights|economizar|economia|reduzir gastos|oportunidades de economia)\b/.test(
           normalizedQuestion,
         );
       const replyText = requestsAnalysis
