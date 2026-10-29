@@ -298,7 +298,9 @@ export async function syncPluggyFinanceData(
         description: transaction.description?.trim() || "Transação bancária",
         amount: transaction.amount,
         currency: transaction.currencyCode || "BRL",
-        category: transaction.category?.trim() || categorizeTransaction(transaction.description ?? ""),
+        category:
+          transaction.category?.trim() ||
+          categorizeTransaction(transaction.description ?? ""),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,pluggy_transaction_id" },
