@@ -73,7 +73,7 @@ Deno.serve(
         async () => {
           const { data, error } = await supabase
             .from("accounts")
-            .select("id, item_id, pluggy_account_id, name, type, balance, currency")
+            .select("id, pluggy_item_id, pluggy_account_id, name, type, balance, currency")
             .order("name");
 
           if (error) {
@@ -144,7 +144,7 @@ Deno.serve(
 
           let query = supabase
             .from("transactions")
-            .select("id, account_id, pluggy_tx_id, date, description, amount, type, category")
+            .select("id, account_id, pluggy_transaction_id, date, description, amount, currency, category")
             .order("date", { ascending: false })
             .limit(limite);
 
@@ -178,8 +178,8 @@ Deno.serve(
           const { data, error } = await fetchAll(
             supabase
               .from("transactions")
-              .select("category, amount, type, date")
-              .eq("type", "DEBITO")
+              .select("category, amount, currency, date")
+              .gt("amount", 0)
               .gte("date", start)
               .lte("date", end),
           );
@@ -191,25 +191,28 @@ Deno.serve(
             );
           }
 
-          const totals = new Map<string, number>();
+          const totals = new Map<string, { categoria: string; moeda: string; total: number }>();
+          const totalsByCurrency = new Map<string, number>();
           for (const transaction of data ?? []) {
-            const category = transaction.category?.trim() || "Sem categoria";
-            totals.set(
-              category,
-              (totals.get(category) ?? 0) + Math.abs(Number(transaction.amount ?? 0)),
-            );
+            const categoria = transaction.category?.trim() || "Sem categoria";
+            const moeda = transaction.currency || "UNKNOWN";
+            const key = `${moeda}\u0000${categoria}`;
+            const total = (totals.get(key)?.total ?? 0) + Number(transaction.amount ?? 0);
+            totals.set(key, { categoria, moeda, total });
+            totalsByCurrency.set(moeda, (totalsByCurrency.get(moeda) ?? 0) + Number(transaction.amount ?? 0));
           }
-          const categorias = Array.from(totals, ([categoria, total]) => ({
-            categoria,
-            total: money(total),
-          })).sort((a, b) => b.total - a.total);
+          const categorias = Array.from(totals.values())
+            .map((item) => ({ ...item, total: money(item.total) }))
+            .sort((a, b) => b.total - a.total);
 
           return jsonText({
             mes,
-            total_gastos: money(categorias.reduce((sum, item) => sum + item.total, 0)),
+            totais_por_moeda: Array.from(totalsByCurrency, ([moeda, total]) => ({
+              moeda,
+              total_gastos: money(total),
+            })),
             quantidade_transacoes: data?.length ?? 0,
             categorias,
-            moeda: "BRL",
           });
         },
       );
@@ -228,7 +231,7 @@ Deno.serve(
           const { data, error } = await fetchAll(
             supabase
               .from("transactions")
-              .select("amount, type, date")
+              .select("amount, currency, date")
               .gte("date", start)
               .lte("date", end),
           );
@@ -240,21 +243,25 @@ Deno.serve(
             );
           }
 
-          let creditos = 0;
-          let debitos = 0;
+          const totals = new Map<string, { creditos: number; debitos: number }>();
           for (const transaction of data ?? []) {
-            const amount = Math.abs(Number(transaction.amount ?? 0));
-            if (transaction.type === "CREDITO") creditos += amount;
-            if (transaction.type === "DEBITO") debitos += amount;
+            const moeda = transaction.currency || "UNKNOWN";
+            const current = totals.get(moeda) ?? { creditos: 0, debitos: 0 };
+            const amount = Number(transaction.amount ?? 0);
+            if (amount < 0) current.creditos += Math.abs(amount);
+            if (amount > 0) current.debitos += amount;
+            totals.set(moeda, current);
           }
 
           return jsonText({
             mes,
             quantidade_transacoes: data?.length ?? 0,
-            total_creditos: money(creditos),
-            total_debitos: money(debitos),
-            resultado_liquido: money(creditos - debitos),
-            moeda: "BRL",
+            resumos_por_moeda: Array.from(totals, ([moeda, totalsForCurrency]) => ({
+              moeda,
+              total_creditos: money(totalsForCurrency.creditos),
+              total_debitos: money(totalsForCurrency.debitos),
+              resultado_liquido: money(totalsForCurrency.creditos - totalsForCurrency.debitos),
+            })),
           });
         },
       );
@@ -280,8 +287,8 @@ Deno.serve(
           const { data, error } = await fetchAll(
             supabase
               .from("transactions")
-              .select("id, account_id, date, description, amount, type, category")
-              .eq("type", "DEBITO")
+              .select("id, account_id, date, description, amount, currency, category")
+              .gt("amount", 0)
               .gte("date", inicio)
               .lte("date", fim),
           );
@@ -298,7 +305,7 @@ Deno.serve(
             .slice(0, top)
             .map((transaction) => ({
               ...transaction,
-              amount: Math.abs(Number(transaction.amount ?? 0)),
+              amount: Number(transaction.amount ?? 0),
             }));
 
           return jsonText({ inicio, fim, top, gastos });
