@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AlertCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { AlertCircle, RefreshCw, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/observability")({
   component: ObservabilityPage,
@@ -35,7 +35,9 @@ function ObservabilityPage() {
     setError("");
     try {
       const supabase = getSupabaseBrowserClient();
-      if (!supabase) throw new Error("A autenticação não está configurada.");
+      if (!supabase) {
+        throw new Error("A autenticação não está configurada.");
+      }
       const { data, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !data.session) {
         throw new Error("Entre na sua conta administrativa para consultar a observabilidade.");
@@ -45,7 +47,9 @@ function ObservabilityPage() {
         cache: "no-store",
       });
       const result = (await response.json()) as Snapshot | { error?: string };
-      if (!response.ok) throw new Error("error" in result ? result.error : "Consulta indisponível.");
+      if (!response.ok) {
+        throw new Error("error" in result ? result.error : "Consulta indisponível.");
+      }
       setSnapshot(result as Snapshot);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível carregar os eventos.");
@@ -69,7 +73,8 @@ function ObservabilityPage() {
             <p className="text-xs font-semibold tracking-[0.2em] text-primary">NEXORA FINANCE</p>
             <h1 className="mt-2 text-3xl font-semibold">Observabilidade de webhooks</h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Visão operacional dos últimos eventos persistidos. O acesso é restrito a e-mails administrativos autorizados.
+              Visão operacional dos últimos eventos persistidos. O acesso é restrito a e-mails
+              administrativos autorizados.
             </p>
           </div>
           <button
@@ -84,12 +89,15 @@ function ObservabilityPage() {
         </header>
 
         {error && (
-          <div role="alert" className="flex items-start gap-3 rounded-xl border border-destructive/40 p-4 text-sm">
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-xl border border-destructive/40 p-4 text-sm"
+          >
             <AlertCircle size={18} className="mt-0.5 shrink-0" />
             <div>
               <p className="font-medium">A consulta não foi concluída</p>
               <p className="mt-1 text-muted-foreground">{error}</p>
-              {error.includes("Acesso restrito") || error.includes("autenticação") ? null : (
+              {!error.includes("Acesso restrito") && !error.includes("autenticação") && (
                 <button type="button" className="mt-3 underline" onClick={() => void load()}>
                   Tentar novamente
                 </button>
@@ -98,19 +106,31 @@ function ObservabilityPage() {
           </div>
         )}
 
-        {loading && !snapshot && <p className="text-sm text-muted-foreground">Carregando eventos…</p>}
+        {loading && !snapshot && (
+          <p className="text-sm text-muted-foreground">Carregando eventos…</p>
+        )}
 
         {snapshot && (
           <>
             <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {(["processing", "completed", "failed", "ignored"] as const).map((status) => (
-                <article key={status} className="rounded-xl border border-border bg-card p-4">
-                  <p className="text-sm text-muted-foreground">
-                    {status === "processing" ? "Em processamento" : status === "completed" ? "Concluídos" : status === "failed" ? "Com falha" : "Ignorados"}
-                  </p>
-                  <p className="mt-2 text-3xl font-semibold tabular-nums">{snapshot.counts[status]}</p>
-                </article>
-              ))}
+              {(["processing", "completed", "failed", "ignored"] as const).map((status) => {
+                const label =
+                  status === "processing"
+                    ? "Em processamento"
+                    : status === "completed"
+                      ? "Concluídos"
+                      : status === "failed"
+                        ? "Com falha"
+                        : "Ignorados";
+                return (
+                  <article key={status} className="rounded-xl border border-border bg-card p-4">
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <p className="mt-2 text-3xl font-semibold tabular-nums">
+                      {snapshot.counts[status]}
+                    </p>
+                  </article>
+                );
+              })}
             </section>
 
             <section className="rounded-xl border border-border bg-card">
@@ -142,15 +162,25 @@ function ObservabilityPage() {
                         <tr key={event.event_id} className="border-t border-border">
                           <td className="px-4 py-3">
                             <p className="font-medium">{event.event_type}</p>
-                            <p className="mt-1 font-mono text-xs text-muted-foreground">{event.event_id}</p>
+                            <p className="mt-1 font-mono text-xs text-muted-foreground">
+                              {event.event_id}
+                            </p>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="rounded-full border border-border px-2 py-1 text-xs">{event.status}</span>
+                            <span className="rounded-full border border-border px-2 py-1 text-xs">
+                              {event.status}
+                            </span>
                           </td>
                           <td className="px-4 py-3 tabular-nums">{event.attempts}</td>
-                          <td className="px-4 py-3 font-mono text-xs">{event.error_code ?? "—"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{dateTime(event.created_at)}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{dateTime(event.processed_at)}</td>
+                          <td className="px-4 py-3 font-mono text-xs">
+                            {event.error_code ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            {dateTime(event.created_at)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            {dateTime(event.processed_at)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -161,7 +191,8 @@ function ObservabilityPage() {
 
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <ShieldCheck size={15} />
-              A tela não exibe payload bruto, descrições bancárias, saldos, item_id ou mensagens de erro detalhadas.
+              A tela não exibe payload bruto, descrições bancárias, saldos, item_id ou mensagens de
+              erro detalhadas.
             </p>
           </>
         )}
