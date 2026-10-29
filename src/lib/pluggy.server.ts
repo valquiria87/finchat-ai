@@ -71,35 +71,49 @@ export async function pluggyFetch(path: string, init?: RequestInit) {
     });
 
     if (response.ok) return response;
-    if (!retryable || !RETRYABLE_STATUS.has(response.status) || attempt === MAX_GET_RETRIES) break;
+    if (
+      !retryable ||
+      !RETRYABLE_STATUS.has(response.status) ||
+      attempt === MAX_GET_RETRIES
+    ) {
+      break;
+    }
 
     const retryAfter = Number(response.headers.get("retry-after"));
-    const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
-      ? Math.min(retryAfter * 1000, 2000)
-      : 250 * 2 ** attempt;
+    const delayMs =
+      Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 2000)
+        : 250 * 2 ** attempt;
 
-    console.warn(JSON.stringify({
-      level: "warn",
-      service: "pluggy-client",
-      operation: "http_request",
-      method,
-      status: response.status,
-      attempt: attempt + 1,
-      retryInMs: delayMs,
-    }));
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        service: "pluggy-client",
+        operation: "http_request",
+        method,
+        status: response.status,
+        attempt: attempt + 1,
+        retryInMs: delayMs,
+      }),
+    );
     await sleep(delayMs);
   }
 
-  console.error(JSON.stringify({
-    level: "error",
-    service: "pluggy-client",
-    operation: "http_request",
-    method,
-    status: response?.status ?? 0,
-    retryable,
-    outcome: "failed",
-  }));
-  throw new PluggyError("Não foi possível consultar os dados da instituição.", response?.status);
+  console.error(
+    JSON.stringify({
+      level: "error",
+      service: "pluggy-client",
+      operation: "http_request",
+      method,
+      status: response?.status ?? 0,
+      retryable,
+      outcome: "failed",
+    }),
+  );
+  throw new PluggyError(
+    "Não foi possível consultar os dados da instituição.",
+    response?.status,
+  );
 }
 
 function sessionSecret() {
@@ -409,14 +423,16 @@ export async function handlePluggyWebhook(
   }).passthrough();
   const parsed = payloadSchema.safeParse(body);
   if (!parsed.success) {
-    console.warn(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level: "warn",
-      service: "pluggy-webhook",
-      operation: "validate_payload",
-      outcome: "rejected",
-      issueCount: parsed.error.issues.length,
-    }));
+    console.warn(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: "warn",
+        service: "pluggy-webhook",
+        operation: "validate_payload",
+        outcome: "rejected",
+        issueCount: parsed.error.issues.length,
+      }),
+    );
     return Response.json(
       { error: "Payload inválido: verifique event, eventId e itemId." },
       { status: 400 },
