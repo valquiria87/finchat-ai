@@ -219,6 +219,7 @@ export type FinanceSyncPayload = {
     description?: string;
     currencyCode?: string | null;
     amount: number;
+    type?: string;
     category?: string | null;
   }>;
 };
@@ -296,7 +297,20 @@ export async function syncPluggyFinanceData(
         pluggy_transaction_id: transaction.id,
         date: date.toISOString(),
         description: transaction.description?.trim() || "Transação bancária",
-        amount: transaction.amount,
+        amount:
+          transaction.type?.toUpperCase() === "DEBIT"
+            ? Math.abs(transaction.amount)
+            : transaction.type?.toUpperCase() === "CREDIT"
+              ? -Math.abs(transaction.amount)
+              : transaction.amount,
+        type:
+          transaction.type?.toUpperCase() === "DEBIT"
+            ? "DEBITO"
+            : transaction.type?.toUpperCase() === "CREDIT"
+              ? "CREDITO"
+              : transaction.amount >= 0
+                ? "DEBITO"
+                : "CREDITO",
         currency: transaction.currencyCode || "BRL",
         category:
           transaction.category?.trim() || categorizeTransaction(transaction.description ?? ""),
