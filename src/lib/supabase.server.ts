@@ -262,7 +262,7 @@ export async function syncPluggyFinanceData(
           type: account.type ?? null,
           currency: account.currencyCode || "BRL",
           balance: account.balance ?? null,
-          available_balance: account.creditData?.availableCreditLimit ?? null,
+          credit_limit: account.creditData?.availableCreditLimit ?? null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id,pluggy_account_id" },
