@@ -7,7 +7,9 @@ import {
   pluggyFetch,
   sessionCookie,
   sessionIdentity,
+  fetchFinanceData,
 } from "@/lib/pluggy.server";
+import { syncPluggyFinanceData } from "@/lib/supabase.server";
 import {
   requireSupabaseUser,
   supabaseAuthErrorResponse,
@@ -42,13 +44,17 @@ export const Route = createFileRoute("/api/pluggy-session")({
           const itemResponse = await pluggyFetch(
             "/items/" + encodeURIComponent(body.itemId),
           );
-          const item = (await itemResponse.json()) as { clientUserId?: string };
-          if (item.clientUserId !== user.id) {
+          const item = (await itemResponse.json()) as { id?: string; clientUserId?: string };
+          if (item.clientUserId !== user.id || item.id !== body.itemId) {
             return Response.json(
               { error: "Este item não pertence à sua conta." },
               { status: 403 },
             );
           }
+
+          // Persist the verified bank connection and its initial account/transaction snapshot.
+          const financeData = await fetchFinanceData(body.itemId);
+          await syncPluggyFinanceData(user.id, financeData);
 
           const headers = new Headers({ "content-type": "application/json" });
           headers.append("set-cookie", await ownerCookie(user.id));
