@@ -2,7 +2,12 @@ const API = "https://api.pluggy.ai";
 const COOKIE = "finchat_pluggy_item";
 const OWNER_COOKIE = "finchat_owner";
 
-export class PluggyError extends Error {}
+export class PluggyError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+    this.name = "PluggyError";
+  }
+}
 
 function config() {
   const clientId = process.env["PLUGGY_CLIENT_ID"];
@@ -42,7 +47,9 @@ export async function pluggyFetch(path: string, init?: RequestInit) {
     ...init,
     headers: { "X-API-KEY": key, ...(init?.headers ?? {}) },
   });
-  if (!response.ok) throw new PluggyError("Não foi possível consultar os dados da instituição.");
+  if (!response.ok) {
+    throw new PluggyError("Não foi possível consultar os dados da instituição.", response.status);
+  }
   return response;
 }
 
@@ -422,10 +429,35 @@ export async function handlePluggyWebhook(
 
     // 5. Para eventos de item ativo (created, updated, error), validar a existência do item na Pluggy
     if (event !== "item/deleted") {
+      // Distinguish a missing/invalid Pluggy item from a transient sync failure.
       try {
         const item = await fetchPluggyItem(validItemId);
         itemStatus = item.status;
+      } catch (err) {
+        const status = err instanceof PluggyError ? err.status : undefined;
+        const isNotFound = status === 404;
+        const msg = err instanceof Error ? err.message : "Item não pôde ser verificado.";
 
+        await markWebhookEventFailed(
+          {
+            eventId,
+            errorCode: isNotFound ? "ITEM_VERIFICATION_FAILED" : "ITEM_LOOKUP_FAILED",
+            errorMessage: msg.slice(0, 500),
+          },
+          supabaseClient,
+        ).catch(() => undefined);
+
+        return Response.json(
+          {
+            error: isNotFound
+              ? "O item não pôde ser verificado na Pluggy."
+              : "Não foi possível verificar o item na Pluggy.",
+          },
+          { status: isNotFound ? 422 : 503 },
+        );
+      }
+
+      try {
         // Resolve ownership only from our server-side connection mapping.
         const ownerId = await findPluggyItemOwner(validItemId, supabaseClient);
         if (!ownerId) {
