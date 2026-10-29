@@ -1,3 +1,4 @@
+import { categorizeTransaction } from "@/lib/transaction-categorizer";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export class SupabaseConfigError extends Error {}
@@ -297,7 +298,7 @@ export async function syncPluggyFinanceData(
         description: transaction.description?.trim() || "Transação bancária",
         amount: transaction.amount,
         currency: transaction.currencyCode || "BRL",
-        category: transaction.category ?? null,
+        category: transaction.category?.trim() || categorizeTransaction(transaction.description ?? ""),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,pluggy_transaction_id" },
