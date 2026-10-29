@@ -36,55 +36,60 @@ function OAuthConsent() {
       };
     }
 
-    void client.auth.getSession().then(({ data, error: sessionError }) => {
-      if (!active) return;
-      if (sessionError) {
+    void client.auth
+      .getSession()
+      .then(({ data, error: sessionError }) => {
+        if (!active) return;
+        if (sessionError) {
+          setError("Não foi possível verificar sua sessão.");
+          setLoading(false);
+          return;
+        }
+
+        if (!data.session) {
+          const next = window.location.pathname + window.location.search;
+          window.location.assign("/?next=" + encodeURIComponent(next));
+          return;
+        }
+
+        const authorizationId = new URLSearchParams(window.location.search).get(
+          "authorization_id",
+        );
+        if (!authorizationId) {
+          setError("Solicitação OAuth sem o identificador de autorização.");
+          setLoading(false);
+          return;
+        }
+
+        void client.auth.oauth
+          .getAuthorizationDetails(authorizationId)
+          .then(({ data: authDetails, error: authError }) => {
+            if (!active) return;
+            if (authError || !authDetails) {
+              setError(authError?.message ?? "Solicitação de autorização inválida ou expirada.");
+              setLoading(false);
+              return;
+            }
+
+            if (!( "authorization_id" in authDetails) && "redirect_url" in authDetails) {
+              window.location.assign(authDetails.redirect_url);
+              return;
+            }
+
+            setDetails(authDetails as AuthorizationDetails);
+            setLoading(false);
+          })
+          .catch(() => {
+            if (!active) return;
+            setError("Não foi possível carregar os detalhes da autorização.");
+            setLoading(false);
+          });
+      })
+      .catch(() => {
+        if (!active) return;
         setError("Não foi possível verificar sua sessão.");
         setLoading(false);
-        return;
-      }
-
-      if (!data.session) {
-        const next = window.location.pathname + window.location.search;
-        window.location.assign("/?next=" + encodeURIComponent(next));
-        return;
-      }
-
-      const authorizationId = new URLSearchParams(window.location.search).get("authorization_id");
-      if (!authorizationId) {
-        setError("Solicitação OAuth sem o identificador de autorização.");
-        setLoading(false);
-        return;
-      }
-
-      void client.auth.oauth
-        .getAuthorizationDetails(authorizationId)
-        .then(({ data: authDetails, error: authError }) => {
-          if (!active) return;
-          if (authError || !authDetails) {
-            setError(authError?.message ?? "Solicitação de autorização inválida ou expirada.");
-            setLoading(false);
-            return;
-          }
-
-          if (!("authorization_id" in authDetails) && "redirect_url" in authDetails) {
-            window.location.assign(authDetails.redirect_url);
-            return;
-          }
-
-          setDetails(authDetails as AuthorizationDetails);
-          setLoading(false);
-        })
-        .catch(() => {
-          if (!active) return;
-          setError("Não foi possível carregar os detalhes da autorização.");
-          setLoading(false);
-        });
-    }).catch(() => {
-      if (!active) return;
-      setError("Não foi possível verificar sua sessão.");
-      setLoading(false);
-    });
+      });
 
     return () => {
       active = false;
