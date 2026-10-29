@@ -144,7 +144,9 @@ Deno.serve(
 
           let query = supabase
             .from("transactions")
-            .select("id, account_id, pluggy_transaction_id, date, description, amount, currency, category")
+            .select(
+              "id, account_id, pluggy_transaction_id, date, description, amount, currency, category",
+            )
             .order("date", { ascending: false })
             .limit(limite);
 
@@ -199,7 +201,10 @@ Deno.serve(
             const key = `${moeda}\u0000${categoria}`;
             const total = (totals.get(key)?.total ?? 0) + Number(transaction.amount ?? 0);
             totals.set(key, { categoria, moeda, total });
-            totalsByCurrency.set(moeda, (totalsByCurrency.get(moeda) ?? 0) + Number(transaction.amount ?? 0));
+            totalsByCurrency.set(
+              moeda,
+              (totalsByCurrency.get(moeda) ?? 0) + Number(transaction.amount ?? 0),
+            );
           }
           const categorias = Array.from(totals.values())
             .map((item) => ({ ...item, total: money(item.total) }))
