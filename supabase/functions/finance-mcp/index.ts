@@ -145,7 +145,7 @@ Deno.serve(
           let query = supabase
             .from("transactions")
             .select(
-              "id, account_id, pluggy_transaction_id, date, description, amount, currency, category",
+              "id, account_id, pluggy_transaction_id, date, description, amount, type, currency, category",
             )
             .order("date", { ascending: false })
             .limit(limite);
@@ -180,8 +180,8 @@ Deno.serve(
           const { data, error } = await fetchAll(
             supabase
               .from("transactions")
-              .select("category, amount, currency, date")
-              .gt("amount", 0)
+              .select("category, amount, type, currency, date")
+              .eq("type", "DEBITO")
               .gte("date", start)
               .lte("date", end),
           );
@@ -236,7 +236,7 @@ Deno.serve(
           const { data, error } = await fetchAll(
             supabase
               .from("transactions")
-              .select("amount, currency, date")
+              .select("amount, type, currency, date")
               .gte("date", start)
               .lte("date", end),
           );
@@ -252,9 +252,9 @@ Deno.serve(
           for (const transaction of data ?? []) {
             const moeda = transaction.currency || "UNKNOWN";
             const current = totals.get(moeda) ?? { creditos: 0, debitos: 0 };
-            const amount = Number(transaction.amount ?? 0);
-            if (amount < 0) current.creditos += Math.abs(amount);
-            if (amount > 0) current.debitos += amount;
+            const amount = Math.abs(Number(transaction.amount ?? 0));
+            if (transaction.type === "CREDITO") current.creditos += amount;
+            if (transaction.type === "DEBITO") current.debitos += amount;
             totals.set(moeda, current);
           }
 
@@ -292,8 +292,8 @@ Deno.serve(
           const { data, error } = await fetchAll(
             supabase
               .from("transactions")
-              .select("id, account_id, date, description, amount, currency, category")
-              .gt("amount", 0)
+              .select("id, account_id, date, description, amount, type, currency, category")
+              .eq("type", "DEBITO")
               .gte("date", inicio)
               .lte("date", fim),
           );
@@ -310,7 +310,7 @@ Deno.serve(
             .slice(0, top)
             .map((transaction) => ({
               ...transaction,
-              amount: Number(transaction.amount ?? 0),
+              amount: Math.abs(Number(transaction.amount ?? 0)),
             }));
 
           return jsonText({ inicio, fim, top, gastos });
