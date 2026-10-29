@@ -1,0 +1,5 @@
+# Supabase CLI project configuration.
+# OAuth discovery must reach the Edge Function before user authentication is checked here.
+# The function enforces user JWT validation via withSupabase({ auth: "user" }).
+[functions.finance-mcp]
+verify_jwt = false
