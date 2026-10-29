@@ -14,10 +14,7 @@ export function categorizeTransaction(description: string): string {
   const text = normalize(description);
 
   const rules: Array<[string, RegExp]> = [
-    [
-      "Transferência",
-      /\b(pix|ted|doc|transferencia|transferido|deposito|saque)\b/,
-    ],
+    ["Transferência", /\b(pix|ted|doc|transferencia|transferido|deposito|saque)\b/],
     [
       "Renda",
       /\b(salario|aposentadoria|beneficio|rendimento|juros recebidos|cashback|comissao|honorarios recebidos|pagamento recebido|venda recebida)\b/,
