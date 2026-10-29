@@ -33,21 +33,14 @@ Deno.serve(async (request) => {
 
   const token = getBearerToken(request);
   if (!token) {
-    return Response.json(
-      { error: "Authorization Bearer token is required." },
-      { status: 401 },
-    );
+    return Response.json({ error: "Authorization Bearer token is required." }, { status: 401 });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ??
-    Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
   if (!supabaseUrl || !anonKey) {
     console.error("Missing Supabase URL or publishable/anon key.");
-    return Response.json(
-      { error: "MCP server is not configured." },
-      { status: 503 },
-    );
+    return Response.json({ error: "MCP server is not configured." }, { status: 503 });
   }
 
   // The caller's JWT is forwarded so every query is evaluated under RLS.
@@ -58,10 +51,7 @@ Deno.serve(async (request) => {
 
   const { data: authData, error: authError } = await supabase.auth.getUser(token);
   if (authError || !authData.user) {
-    return Response.json(
-      { error: "Invalid or expired Supabase access token." },
-      { status: 401 },
-    );
+    return Response.json({ error: "Invalid or expired Supabase access token." }, { status: 401 });
   }
 
   const server = new McpServer({ name: "nexora-finance", version: "1.0.0" });
@@ -73,19 +63,18 @@ Deno.serve(async (request) => {
       description:
         "Returns the signed-in user's account balances and recent income/expense totals. Read-only; data access is restricted by Supabase RLS.",
       inputSchema: z.object({
-        days: z.number()
-          .int()
-          .min(1)
-          .max(365)
-          .default(30)
-          .describe("Number of past days to summarize."),
+        days:
+          z.number()
+            .int()
+            .min(1)
+            .max(365)
+            .default(30)
+            .describe("Number of past days to summarize."),
       }),
       annotations: { readOnlyHint: true },
     },
     async ({ days }) => {
-      const since = new Date(
-        Date.now() - days * 24 * 60 * 60 * 1000,
-      ).toISOString();
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
       const [accountsResult, transactionsResult] = await Promise.all([
         supabase
           .from("accounts")
@@ -125,8 +114,7 @@ Deno.serve(async (request) => {
         income_total: Number(income.toFixed(2)),
         expense_total: Number(expenses.toFixed(2)),
         net_total: Number((income - expenses).toFixed(2)),
-        note:
-          "Totais calculados apenas sobre as transações retornadas pelo banco e visíveis ao usuário autenticado.",
+        note: "Totais calculados apenas sobre as transações retornadas pelo banco e visíveis ao usuário autenticado.",
       });
     },
   );
@@ -164,14 +152,10 @@ Deno.serve(async (request) => {
       description:
         "Lists the signed-in user's transactions, optionally filtered by date range and category. Read-only.",
       inputSchema: z.object({
-        start_date: z.string()
-          .date()
-          .optional()
-          .describe("Optional inclusive start date, YYYY-MM-DD."),
-        end_date: z.string()
-          .date()
-          .optional()
-          .describe("Optional inclusive end date, YYYY-MM-DD."),
+        start_date:
+          z.string().date().optional().describe("Optional inclusive start date, YYYY-MM-DD."),
+        end_date:
+          z.string().date().optional().describe("Optional inclusive end date, YYYY-MM-DD."),
         category: z.string().trim().min(1).max(100).optional(),
         limit: z.number().int().min(1).max(100).default(20),
       }),
@@ -179,9 +163,7 @@ Deno.serve(async (request) => {
     },
     async ({ start_date, end_date, category, limit }) => {
       if (start_date && end_date && start_date > end_date) {
-        return errorText(
-          "A data inicial deve ser anterior ou igual à data final.",
-        );
+        return errorText("A data inicial deve ser anterior ou igual à data final.");
       }
 
       let query = supabase
