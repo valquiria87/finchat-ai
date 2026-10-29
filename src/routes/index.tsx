@@ -28,11 +28,7 @@ import {
   type FinanceDataProvider,
 } from "@/lib/finance";
 import type { PluggyAccount, PluggyTransaction } from "@/lib/pluggy.server";
-import type { Session } from "@supabase/supabase-js";
-import {
-  getSupabaseBrowserClient,
-  getSupabaseBrowserConfigError,
-} from "@/lib/supabase.client";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -82,7 +78,8 @@ function Index() {
   const [pluggyLoading, setPluggyLoading] = useState(true);
   const [pluggyLoadError, setPluggyLoadError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const supabase = getSupabaseBrowserClient();
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [supabaseConfigError, setSupabaseConfigError] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authSession, setAuthSession] = useState<Session | null>(null);
   const [authEmail, setAuthEmail] = useState("");
@@ -92,10 +89,26 @@ function Index() {
   const [authError, setAuthError] = useState("");
 
   useEffect(() => {
-    if (!supabase) {
-      setAuthReady(true);
-      return;
-    }
+    let active = true;
+    void import("@/lib/supabase.client").then((module) => {
+      if (!active) return;
+      setSupabaseConfigError(module.supabaseConfigError);
+      const client = module.getSupabaseBrowserClient();
+      setSupabase(client);
+      if (!client) setAuthReady(true);
+    }).catch(() => {
+      if (active) {
+        setSupabaseConfigError("Não foi possível inicializar o Supabase no navegador.");
+        setAuthReady(true);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
     let active = true;
     void supabase.auth.getSession().then(({ data }) => {
       if (active) {
@@ -119,7 +132,7 @@ function Index() {
 
   const authenticatedFetch = async (input: string, init?: RequestInit) => {
     if (!supabase) {
-      throw new Error(getSupabaseBrowserConfigError() ?? "Supabase não está configurado.");
+      throw new Error(supabaseConfigError ?? "Supabase não está configurado.");
     }
     const { data, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !data.session) {
@@ -441,9 +454,9 @@ function Index() {
           <p className="mt-2 text-sm text-muted-foreground">
             Sua conexão bancária ficará vinculada à sua própria conta.
           </p>
-          {getSupabaseBrowserConfigError() && (
+          {supabaseConfigError && (
             <p className="mt-4 rounded-lg border border-border p-3 text-sm text-muted-foreground">
-              {getSupabaseBrowserConfigError()}
+              {supabaseConfigError}
             </p>
           )}
           {authError && (
@@ -456,7 +469,7 @@ function Index() {
             onSubmit={async (event) => {
               event.preventDefault();
               if (!supabase) {
-                setAuthError(getSupabaseBrowserConfigError() ?? "Supabase não está configurado.");
+                setAuthError(supabaseConfigError ?? "Supabase não está configurado.");
                 return;
               }
               setAuthBusy(true);
