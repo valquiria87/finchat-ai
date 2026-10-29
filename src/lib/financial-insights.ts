@@ -54,7 +54,10 @@ export function buildFinancialInsights(
   const totalsByCurrency = new Map<string, number>();
 
   for (const transaction of expenses) {
-    const currency = transaction.currency ?? accounts.find((a) => a.id === transaction.accountId)?.currency ?? (mode === "demo" ? "BRL" : "UNKNOWN");
+    const currency =
+      transaction.currency ??
+      accounts.find((account) => account.id === transaction.accountId)?.currency ??
+      (mode === "demo" ? "BRL" : "UNKNOWN");
     totalsByCurrency.set(currency, (totalsByCurrency.get(currency) ?? 0) + transaction.amount);
   }
 
@@ -69,8 +72,12 @@ export function buildFinancialInsights(
     lines.push("", "Não foram identificadas despesas positivas nos registros disponíveis.");
   } else {
     lines.push("", "**Despesas por moeda:**");
-    for (const [currency, total] of [...totalsByCurrency.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-      lines.push(`- ${currency === "UNKNOWN" ? "Moeda não informada" : currency}: ${formatMoney(total, currency === "UNKNOWN" ? null : currency)}`);
+    for (const [currency, total] of [...totalsByCurrency.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    )) {
+      lines.push(
+        `- ${currency === "UNKNOWN" ? "Moeda não informada" : currency}: ${formatMoney(total, currency === "UNKNOWN" ? null : currency)}`,
+      );
     }
   }
 
@@ -88,7 +95,10 @@ export function buildFinancialInsights(
 
   const largestExpense = [...expenses].sort((a, b) => b.amount - a.amount)[0];
   if (largestExpense) {
-    const currency = largestExpense.currency ?? accounts.find((a) => a.id === largestExpense.accountId)?.currency ?? (mode === "demo" ? "BRL" : "UNKNOWN");
+    const currency =
+      largestExpense.currency ??
+      accounts.find((account) => account.id === largestExpense.accountId)?.currency ??
+      (mode === "demo" ? "BRL" : "UNKNOWN");
     lines.push(
       "",
       "**Maior despesa individual registrada:**",
