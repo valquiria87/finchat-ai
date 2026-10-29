@@ -71,11 +71,7 @@ export async function pluggyFetch(path: string, init?: RequestInit) {
     });
 
     if (response.ok) return response;
-    if (
-      !retryable ||
-      !RETRYABLE_STATUS.has(response.status) ||
-      attempt === MAX_GET_RETRIES
-    ) {
+    if (!retryable || !RETRYABLE_STATUS.has(response.status) || attempt === MAX_GET_RETRIES) {
       break;
     }
 
@@ -110,10 +106,7 @@ export async function pluggyFetch(path: string, init?: RequestInit) {
       outcome: "failed",
     }),
   );
-  throw new PluggyError(
-    "Não foi possível consultar os dados da instituição.",
-    response?.status,
-  );
+  throw new PluggyError("Não foi possível consultar os dados da instituição.", response?.status);
 }
 
 function sessionSecret() {
@@ -372,12 +365,7 @@ export async function fetchPluggyItem(itemId: string): Promise<PluggyItemDetails
   return (await response.json()) as PluggyItemDetails;
 }
 
-function logSafeWebhookEvent(
-  event: string,
-  eventId: string,
-  _itemId?: string,
-  detail?: string,
-) {
+function logSafeWebhookEvent(event: string, eventId: string, _itemId?: string, detail?: string) {
   console.info(
     JSON.stringify({
       timestamp: new Date().toISOString(),
