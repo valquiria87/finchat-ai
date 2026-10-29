@@ -180,6 +180,46 @@ function Index() {
       void loadPluggy().catch(() => undefined);
     }
   }, [authReady, authSession]);
+
+  const loadPluggyRef = useRef(loadPluggy);
+  loadPluggyRef.current = loadPluggy;
+
+  useEffect(() => {
+    const userId = authSession?.user.id;
+    if (!supabase || !authReady || !userId) return;
+
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        void loadPluggyRef.current().catch(() => undefined);
+      }, 500);
+    };
+
+    const channel = supabase
+      .channel(`nexora-finance-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pluggy_items", filter: `user_id=eq.${userId}` },
+        scheduleRefresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "accounts", filter: `user_id=eq.${userId}` },
+        scheduleRefresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${userId}` },
+        scheduleRefresh,
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [authReady, authSession?.user.id, supabase]);
   const [PluggyConnectComponent, setPluggyConnectComponent] = useState<ComponentType<{
     connectToken: string;
     includeSandbox: boolean;
