@@ -2,9 +2,11 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   CreditCard,
+  Download,
   Landmark,
   PieChart,
   RefreshCw,
+  Search,
   Wallet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -39,6 +41,11 @@ export function Dashboard({
   onConnect?: (() => void) | undefined;
 }) {
   const [transactionLimit, setTransactionLimit] = useState(50);
+  const [transactionSearch, setTransactionSearch] = useState("");
+  const [transactionDirection, setTransactionDirection] = useState<"all" | "inflow" | "outflow">(
+    "all",
+  );
+  const [transactionMonth, setTransactionMonth] = useState("");
   useEffect(() => setTransactionLimit(50), [section]);
   const accounts = provider.getAccounts();
   const txs = provider.getTransactions();
@@ -75,7 +82,56 @@ export function Dashboard({
   const spendingSummary = [...categoryTotals]
     .map(([currency, amount]) => money(amount, currency === "UNKNOWN" ? null : currency))
     .join(" · ");
-  const latest = latestTransactions(txs, section === "overview" ? 5 : transactionLimit);
+  const filteredTransactions = txs.filter((transaction) => {
+    const query = transactionSearch.trim().toLocaleLowerCase("pt-BR");
+    const accountName =
+      accounts.find((account) => account.id === transaction.accountId)?.name ?? "";
+    const matchesSearch =
+      !query ||
+      [transaction.description, transaction.category, accountName].some((value) =>
+        value.toLocaleLowerCase("pt-BR").includes(query),
+      );
+    const matchesDirection =
+      transactionDirection === "all" ||
+      (transactionDirection === "outflow" && isExpense(transaction)) ||
+      (transactionDirection === "inflow" && !isExpense(transaction));
+    const matchesMonth = !transactionMonth || transaction.date.startsWith(transactionMonth);
+    return matchesSearch && matchesDirection && matchesMonth;
+  });
+  const latest = latestTransactions(
+    section === "transactions" ? filteredTransactions : txs,
+    section === "overview" ? 5 : transactionLimit,
+  );
+  const exportStatement = () => {
+    const escapeCsv = (value: string | number) => {
+      const text = String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+    const rows = [
+      ["Data", "Descrição", "Categoria", "Conta", "Tipo", "Valor", "Moeda"],
+      ...latestTransactions(filteredTransactions, filteredTransactions.length).map(
+        (transaction) => {
+          const account = accounts.find((entry) => entry.id === transaction.accountId);
+          return [
+            transaction.date,
+            transaction.description,
+            transaction.category || "Categoria não informada",
+            account?.name ?? "Conta não identificada",
+            isExpense(transaction) ? "Saída" : "Entrada",
+            Math.abs(transaction.amount).toFixed(2).replace(".", ","),
+            transaction.currency ?? account?.currency ?? "",
+          ];
+        },
+      ),
+    ];
+    const csv = "\uFEFF" + rows.map((row) => row.map(escapeCsv).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `extrato-nexora-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
   const connected = provider.mode === "pluggy";
   const title =
     section === "accounts" ? "Contas" : section === "transactions" ? "Transações" : "Visão geral";
@@ -245,26 +301,75 @@ export function Dashboard({
                 <div>
                   <p className="nexora-eyebrow">EXTRATO</p>
                   <h2>Transações consultadas</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {filteredTransactions.length} de {txs.length} movimentações
+                  </p>
                 </div>
-                <span className="nexora-count">{txs.length}</span>
+                <Button
+                  variant="outline"
+                  onClick={exportStatement}
+                  disabled={filteredTransactions.length === 0}
+                >
+                  <Download /> Exportar CSV
+                </Button>
+              </div>
+              <div className="grid gap-3 border-b border-border pb-4 md:grid-cols-[minmax(0,1fr)_180px_170px]">
+                <label className="flex items-center gap-2 rounded-lg border border-input px-3">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    aria-label="Buscar no extrato"
+                    className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none"
+                    placeholder="Buscar descrição, categoria ou conta"
+                    value={transactionSearch}
+                    onChange={(event) => {
+                      setTransactionSearch(event.target.value);
+                      setTransactionLimit(50);
+                    }}
+                  />
+                </label>
+                <select
+                  aria-label="Filtrar tipo de movimentação"
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm"
+                  value={transactionDirection}
+                  onChange={(event) => {
+                    setTransactionDirection(event.target.value as "all" | "inflow" | "outflow");
+                    setTransactionLimit(50);
+                  }}
+                >
+                  <option value="all">Entradas e saídas</option>
+                  <option value="inflow">Somente entradas</option>
+                  <option value="outflow">Somente saídas</option>
+                </select>
+                <input
+                  aria-label="Filtrar por mês"
+                  className="h-10 rounded-lg border border-input bg-background px-3 text-sm"
+                  type="month"
+                  value={transactionMonth}
+                  onChange={(event) => {
+                    setTransactionMonth(event.target.value);
+                    setTransactionLimit(50);
+                  }}
+                />
               </div>
               <TransactionList
                 transactions={latest}
                 currencyFor={currencyFor}
                 money={money}
                 emptyText={
-                  connected
-                    ? "Nenhuma transação foi retornada no período consultado."
-                    : "A demonstração não tem uma consulta bancária ativa."
+                  txs.length === 0
+                    ? connected
+                      ? "Nenhuma transação foi retornada no período consultado."
+                      : "A demonstração não tem uma consulta bancária ativa."
+                    : "Nenhuma movimentação corresponde aos filtros."
                 }
               />
-              {txs.length > latest.length && (
+              {filteredTransactions.length > latest.length && (
                 <div className="pt-4">
                   <Button
                     variant="outline"
                     onClick={() => setTransactionLimit((current) => current + 50)}
                   >
-                    Carregar mais 50 · {latest.length} de {txs.length}
+                    Carregar mais 50 · {latest.length} de {filteredTransactions.length}
                   </Button>
                 </div>
               )}

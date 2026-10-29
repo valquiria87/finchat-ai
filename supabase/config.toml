@@ -1,0 +1,11 @@
+project_id = "rzghrtuojjxtbakafcmj"
+
+# OAuth discovery must reach the Edge Function before user authentication is checked at the gateway.
+# The function enforces user JWT validation via withSupabase({ auth: "user" }).
+[functions.finance-mcp]
+verify_jwt = false
+
+[auth.oauth_server]
+enabled = true
+authorization_url_path = "/oauth/consent"
+allow_dynamic_registration = true

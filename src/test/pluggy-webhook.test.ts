@@ -135,7 +135,56 @@ function createMockSupabaseClient(initialRows: WebhookEventRecord[] = []) {
     },
     from(table: string) {
       if (table !== "webhook_events") {
-        throw new Error(`Tabela não suportada no mock: ${table}`);
+        return {
+          upsert(data: Record<string, unknown>) {
+            const result = {
+              data: null,
+              error: null,
+              then(resolve: (value: { data: null; error: null }) => unknown) {
+                return Promise.resolve({ data: null, error: null }).then(resolve);
+              },
+              select() {
+                return {
+                  single: async () => ({
+                    data: {
+                      id: "mock-account-id",
+                      pluggy_account_id: data.pluggy_account_id ?? "mock-account",
+                    },
+                    error: null,
+                  }),
+                };
+              },
+            };
+            return result;
+          },
+          select() {
+            return {
+              eq() {
+                return {
+                  limit() {
+                    return {
+                      maybeSingle: async () => ({
+                        data: { user_id: "mock-user-id" },
+                        error: null,
+                      }),
+                    };
+                  },
+                };
+              },
+            };
+          },
+          update() {
+            return {
+              eq() {
+                return {
+                  then(resolve: (value: { data: null; error: null }) => unknown) {
+                    return Promise.resolve({ data: null, error: null }).then(resolve);
+                  },
+                };
+              },
+            };
+          },
+        };
       }
 
       return {
@@ -469,6 +518,9 @@ describe("handlePluggyWebhook com Supabase", () => {
           { status: 200 },
         );
       }
+      if (String(url).includes("/accounts?itemId=")) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200 });
+      }
       return new Response("Not found", { status: 404 });
     });
 
@@ -585,6 +637,9 @@ describe("handlePluggyWebhook com Supabase", () => {
         return new Response(JSON.stringify({ id: "item_valido", status: "UPDATED" }), {
           status: 200,
         });
+      }
+      if (String(url).includes("/accounts?itemId=")) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200 });
       }
       return new Response("Not found", { status: 404 });
     });

@@ -81,6 +81,14 @@ bun run preview
 
 A demonstraÃ§Ã£o nÃ£o exige credenciais nem variÃ¡veis de ambiente.
 
+## Avaliação da categorização
+
+O fallback determinístico foi avaliado em um conjunto fixo de **100 descrições sintéticas rotuladas manualmente**, com 10 categorias e 10 exemplos por categoria. No benchmark atual, acertou **90 de 100 exemplos (90% de acurácia)**; cada categoria teve 9 acertos em 10 exemplos. Os 10 casos com descrições opacas de estabelecimentos foram classificados como `Outros`, demonstrando o limite do fallback quando a descrição não contém sinal suficiente.
+
+Esse número mede somente o benchmark sintético do fallback local; **não representa a acurácia das categorias fornecidas pela Pluggy nem garante o desempenho em extratos reais**. O conjunto não contém dados pessoais ou transações reais. Para uma avaliação externa mais forte, o próximo passo é expandir o conjunto com exemplos anonimizados e revisados, separar uma amostra de validação não usada para ajustar regras e reportar também precisão/recall por categoria.
+
+O teste automatizado está em `src/test/transaction-categorization-benchmark.test.ts`.
+
 ## Testes
 
 Os testes automatizados existentes estÃ£o em `src/test/` e sÃ£o executados com Vitest pelo comando `bun run test`. A execuÃ§Ã£o validada nesta revisÃ£o aprovou 45 testes em 4 arquivos.
