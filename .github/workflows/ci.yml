@@ -39,3 +39,18 @@ jobs:
 
       - name: Lint
         run: bun run lint
+
+  validate-edge-function:
+    name: Type-check finance MCP Edge Function
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check Edge Function
+        run: deno check supabase/functions/finance-mcp/index.ts
