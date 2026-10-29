@@ -63,13 +63,12 @@ Deno.serve(async (request) => {
       description:
         "Returns the signed-in user's account balances and recent income/expense totals. Read-only; data access is restricted by Supabase RLS.",
       inputSchema: z.object({
-        days:
-          z.number()
-            .int()
-            .min(1)
-            .max(365)
-            .default(30)
-            .describe("Number of past days to summarize."),
+        days: z.number()
+          .int()
+          .min(1)
+          .max(365)
+          .default(30)
+          .describe("Number of past days to summarize."),
       }),
       annotations: { readOnlyHint: true },
     },
@@ -114,7 +113,8 @@ Deno.serve(async (request) => {
         income_total: Number(income.toFixed(2)),
         expense_total: Number(expenses.toFixed(2)),
         net_total: Number((income - expenses).toFixed(2)),
-        note: "Totais calculados apenas sobre as transações retornadas pelo banco e visíveis ao usuário autenticado.",
+        note:
+          "Totais calculados apenas sobre as transações retornadas pelo banco e visíveis ao usuário autenticado.",
       });
     },
   );
@@ -152,10 +152,14 @@ Deno.serve(async (request) => {
       description:
         "Lists the signed-in user's transactions, optionally filtered by date range and category. Read-only.",
       inputSchema: z.object({
-        start_date:
-          z.string().date().optional().describe("Optional inclusive start date, YYYY-MM-DD."),
-        end_date:
-          z.string().date().optional().describe("Optional inclusive end date, YYYY-MM-DD."),
+        start_date: z.string()
+          .date()
+          .optional()
+          .describe("Optional inclusive start date, YYYY-MM-DD."),
+        end_date: z.string()
+          .date()
+          .optional()
+          .describe("Optional inclusive end date, YYYY-MM-DD."),
         category: z.string().trim().min(1).max(100).optional(),
         limit: z.number().int().min(1).max(100).default(20),
       }),
