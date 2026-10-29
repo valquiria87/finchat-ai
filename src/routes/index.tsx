@@ -92,7 +92,7 @@ function Index() {
     let active = true;
     void import("@/lib/supabase.client").then((module) => {
       if (!active) return;
-      setSupabaseConfigError(module.supabaseConfigError);
+      setSupabaseConfigError(module.getSupabaseBrowserConfigError());
       const client = module.getSupabaseBrowserClient();
       setSupabase(client);
       if (!client) setAuthReady(true);
