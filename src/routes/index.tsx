@@ -137,6 +137,20 @@ function Index() {
     };
   }, [supabase]);
 
+  useEffect(() => {
+    if (!authReady || !authSession || typeof window === "undefined") return;
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (!next || !next.startsWith("/") || next.startsWith("//")) return;
+    try {
+      const target = new URL(next, window.location.origin);
+      if (target.origin === window.location.origin) {
+        window.location.replace(target.pathname + target.search + target.hash);
+      }
+    } catch {
+      // Ignore malformed or external redirect targets.
+    }
+  }, [authReady, authSession]);
+
   const authenticatedFetch = async (input: string, init?: RequestInit) => {
     if (!supabase) {
       throw new Error(supabaseConfigError ?? "Supabase não está configurado.");
