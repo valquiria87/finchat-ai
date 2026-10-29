@@ -3,7 +3,10 @@ const COOKIE = "finchat_pluggy_item";
 const OWNER_COOKIE = "finchat_owner";
 
 export class PluggyError extends Error {
-  constructor(message: string, readonly status?: number) {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
     super(message);
     this.name = "PluggyError";
   }
