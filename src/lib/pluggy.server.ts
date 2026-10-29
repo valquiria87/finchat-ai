@@ -198,6 +198,9 @@ import {
   markWebhookEventCompleted,
   markWebhookEventFailed,
   SupabaseConfigError,
+  findPluggyItemOwner,
+  getSupabaseServerClient,
+  syncPluggyFinanceData,
 } from "./supabase.server";
 
 export function timingSafeEqual(a: string, b: string): boolean {
@@ -422,23 +425,64 @@ export async function handlePluggyWebhook(
       try {
         const item = await fetchPluggyItem(validItemId);
         itemStatus = item.status;
+
+        // Resolve ownership only from our server-side connection mapping.
+        const ownerId = await findPluggyItemOwner(validItemId, supabaseClient);
+        if (!ownerId) {
+          await markWebhookEventFailed(
+            {
+              eventId,
+              errorCode: "OWNER_MAPPING_NOT_FOUND",
+              errorMessage: "A conexão ainda não foi associada a um usuário autenticado.",
+            },
+            supabaseClient,
+          );
+          return Response.json(
+            { error: "Conexão ainda não mapeada para um usuário; tente novamente." },
+            { status: 503 },
+          );
+        }
+
+        const financeData = await fetchFinanceData(validItemId);
+        await syncPluggyFinanceData(ownerId, financeData, supabaseClient);
       } catch (err) {
         const msg =
-          err instanceof PluggyError ? err.message : "Item não pôde ser verificado na Pluggy.";
+          err instanceof Error ? err.message : "Item não pôde ser sincronizado.";
 
-        // Registrar falha no Supabase para permitir retentativa futura
         await markWebhookEventFailed(
           {
             eventId,
-            errorCode: "ITEM_VERIFICATION_FAILED",
-            errorMessage: msg,
+            errorCode: "ITEM_SYNC_FAILED",
+            errorMessage: msg.slice(0, 500),
           },
           supabaseClient,
         ).catch(() => undefined);
 
         return Response.json(
-          { error: `Item não pôde ser verificado na Pluggy: ${msg}` },
-          { status: 422 },
+          { error: "Não foi possível sincronizar a conexão bancária." },
+          { status: 503 },
+        );
+      }
+    } else {
+      try {
+        const supabase = supabaseClient ?? getSupabaseServerClient();
+        const { error } = await supabase
+          .from("pluggy_items")
+          .update({ status: "deleted", updated_at: new Date().toISOString() })
+          .eq("pluggy_item_id", validItemId);
+        if (error) throw new Error(error.message);
+      } catch {
+        await markWebhookEventFailed(
+          {
+            eventId,
+            errorCode: "ITEM_DELETE_SYNC_FAILED",
+            errorMessage: "Não foi possível registrar a exclusão da conexão.",
+          },
+          supabaseClient,
+        ).catch(() => undefined);
+        return Response.json(
+          { error: "Não foi possível registrar a exclusão da conexão." },
+          { status: 503 },
         );
       }
     }
