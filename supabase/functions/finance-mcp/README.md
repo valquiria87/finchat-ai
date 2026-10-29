@@ -11,17 +11,19 @@ Servidor MCP via Supabase Edge Function, autenticado por OAuth e com ferramentas
 - `resumo_mensal`: créditos, débitos e resultado líquido no mês `AAAA-MM`.
 - `maiores_gastos`: maiores débitos no período, com quantidade `top` configurável.
 
-## Modelo de dados esperado
+## Modelo de dados usado pelo código de sincronização
 
-- `items`: `id`, `pluggy_item_id`, `conector_name`, `status`, `last_sync_at`.
-- `accounts`: `id`, `item_id`, `pluggy_account_id`, `name`, `type` (`BANCO`/`CARTAO`), `balance`, `currency`.
-- `transactions`: `id`, `account_id`, `pluggy_tx_id` único, `date`, `description`, `amount`, `type` (`DEBITO`/`CREDITO`), `category`.
+- `pluggy_items`: `id`, `user_id`, `pluggy_item_id`, `status`, `last_synced_at`, `updated_at`.
+- `accounts`: `id`, `user_id`, `pluggy_item_id`, `pluggy_account_id`, `name`, `type`, `balance`, `currency`, `credit_limit`, `updated_at`.
+- `transactions`: `id`, `user_id`, `account_id`, `pluggy_transaction_id`, `date`, `description`, `amount`, `currency`, `category`, `updated_at`.
+
+O fluxo de sincronização grava despesas com `amount > 0` e entradas com `amount < 0`. O MCP segue essa convenção, não depende de uma coluna `type` na tabela `transactions` e mantém os agregados separados por moeda. Confirme os nomes e tipos acima no banco remoto antes do uso com dados reais.
 
 Todas as ferramentas são consultas. Não há ferramentas para alterar registros, sincronizar dados, movimentar dinheiro ou mudar saldos.
 
 ## Segurança de dados
 
-O middleware autentica o usuário e as consultas usam o cliente Supabase no contexto desse usuário, sujeitas às políticas RLS. Isso só isola os dados corretamente se as políticas estiverem configuradas para o esquema real. A lista de colunas de `items` acima não inclui um proprietário (`user_id`); portanto, confirme como `items` é associado ao usuário e verifique as políticas RLS de `items`, `accounts` e `transactions` antes do uso com dados reais.
+O middleware autentica o usuário e as consultas usam o cliente Supabase no contexto desse usuário, sujeitas às políticas RLS. O código de sincronização vincula os registros financeiros a `user_id`; o isolamento efetivo depende das políticas do banco. Verifique as políticas RLS de `pluggy_items`, `accounts` e `transactions` e teste com dois usuários distintos antes de usar dados reais.
 
 ## Deploy e validação
 
