@@ -90,7 +90,7 @@ function Index() {
 
   useEffect(() => {
     let active = true;
-    void import("@/lib/supabase.client").then((module) => {
+    void import("@/lib/supabase-browser").then((module) => {
       if (!active) return;
       setSupabaseConfigError(module.getSupabaseBrowserConfigError());
       const client = module.getSupabaseBrowserClient();
