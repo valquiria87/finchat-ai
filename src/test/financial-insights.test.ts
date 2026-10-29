@@ -22,8 +22,24 @@ describe("insights financeiros explicáveis", () => {
 
   it("mantém moedas separadas em vez de somar valores incompatíveis", () => {
     const transactions = [
-      { id: "brl", accountId: "brl-account", date: "2026-10-01", description: "Compra BRL", amount: 100, category: "Compras", currency: "BRL" },
-      { id: "usd", accountId: "usd-account", date: "2026-10-02", description: "Compra USD", amount: 25, category: "Compras", currency: "USD" },
+      {
+        id: "brl",
+        accountId: "brl-account",
+        date: "2026-10-01",
+        description: "Compra BRL",
+        amount: 100,
+        category: "Compras",
+        currency: "BRL",
+      },
+      {
+        id: "usd",
+        accountId: "usd-account",
+        date: "2026-10-02",
+        description: "Compra USD",
+        amount: 25,
+        category: "Compras",
+        currency: "USD",
+      },
     ];
     const result = buildFinancialInsights([], transactions, "pluggy");
 
