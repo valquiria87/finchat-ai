@@ -17,10 +17,7 @@ export const Route = createFileRoute("/api/observability/webhooks")({
         try {
           const user = await requireSupabaseUser(request);
           if (!isObservabilityAdmin(user.email)) {
-            return Response.json(
-              { error: "Acesso restrito à administração." },
-              { status: 403 },
-            );
+            return Response.json({ error: "Acesso restrito à administração." }, { status: 403 });
           }
 
           const supabase = getSupabaseServerClient();
@@ -72,10 +69,7 @@ export const Route = createFileRoute("/api/observability/webhooks")({
         } catch (error) {
           return (
             supabaseAuthErrorResponse(error) ??
-            Response.json(
-              { error: "Não foi possível autorizar a consulta." },
-              { status: 500 },
-            )
+            Response.json({ error: "Não foi possível autorizar a consulta." }, { status: 500 })
           );
         }
       },
