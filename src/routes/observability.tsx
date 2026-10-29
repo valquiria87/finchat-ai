@@ -189,8 +189,10 @@ function ObservabilityPage() {
 
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <ShieldCheck size={15} />
-              A tela não exibe payload bruto, descrições bancárias, saldos,
-              item_id ou mensagens de erro detalhadas.
+              <span>
+                A tela não exibe payload bruto, descrições bancárias, saldos, item_id ou mensagens de
+                erro detalhadas.
+              </span>
             </p>
           </>
         )}
