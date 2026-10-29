@@ -481,8 +481,7 @@ export async function handlePluggyWebhook(
         const financeData = await fetchFinanceData(validItemId);
         await syncPluggyFinanceData(ownerId, financeData, supabaseClient);
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Item não pôde ser sincronizado.";
+        const msg = err instanceof Error ? err.message : "Item não pôde ser sincronizado.";
 
         await markWebhookEventFailed(
           {
