@@ -28,6 +28,11 @@ import {
   type FinanceDataProvider,
 } from "@/lib/finance";
 import type { PluggyAccount, PluggyTransaction } from "@/lib/pluggy.server";
+import type { Session } from "@supabase/supabase-js";
+import {
+  getSupabaseBrowserClient,
+  getSupabaseBrowserConfigError,
+} from "@/lib/supabase.client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -77,12 +82,61 @@ function Index() {
   const [pluggyLoading, setPluggyLoading] = useState(true);
   const [pluggyLoadError, setPluggyLoadError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const supabase = getSupabaseBrowserClient();
+  const [authReady, setAuthReady] = useState(false);
+  const [authSession, setAuthSession] = useState<Session | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState("");
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthReady(true);
+      return;
+    }
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active) {
+        setAuthSession(data.session);
+        setAuthReady(true);
+      }
+    }).catch(() => {
+      if (active) setAuthReady(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) {
+        setAuthSession(session);
+        setAuthReady(true);
+      }
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const authenticatedFetch = async (input: string, init?: RequestInit) => {
+    if (!supabase) {
+      throw new Error(getSupabaseBrowserConfigError() ?? "Supabase não está configurado.");
+    }
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !data.session) {
+      throw new Error("Sua sessão expirou. Entre novamente.");
+    }
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", "Bearer " + data.session.access_token);
+    return fetch(input, { ...init, headers });
+  };
 
   const loadPluggy = async () => {
     setPluggyLoading(true);
     setPluggyLoadError(null);
     try {
-      const response = await fetch("/api/pluggy-data");
+      // Establish the signed owner cookie for this authenticated account before reading its item.
+      await authenticatedFetch("/api/pluggy-session");
+      const response = await authenticatedFetch("/api/pluggy-data");
       const data = (await response.json()) as {
         connected?: boolean;
         item?: { status?: string; connector?: { name?: string } };
@@ -122,8 +176,10 @@ function Index() {
   };
 
   useEffect(() => {
-    void loadPluggy().catch(() => undefined);
-  }, []);
+    if (authReady && authSession) {
+      void loadPluggy().catch(() => undefined);
+    }
+  }, [authReady, authSession]);
   const [PluggyConnectComponent, setPluggyConnectComponent] = useState<ComponentType<{
     connectToken: string;
     includeSandbox: boolean;
@@ -189,7 +245,7 @@ function Index() {
     try {
       setError("");
       setConnecting(true);
-      const response = await fetch("/api/pluggy-token", {
+      const response = await authenticatedFetch("/api/pluggy-token", {
         method: "POST",
       });
 
@@ -316,7 +372,7 @@ function Index() {
     )
       return;
     try {
-      const response = await fetch("/api/pluggy-session", { method: "DELETE" });
+      const response = await authenticatedFetch("/api/pluggy-session", { method: "DELETE" });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Não foi possível desconectar.");
       setError("Instituição desconectada.");
@@ -325,6 +381,117 @@ function Index() {
       setError(cause instanceof Error ? cause.message : "Não foi possível desconectar.");
     }
   };
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <p className="text-sm text-muted-foreground">Verificando sessão segura…</p>
+      </div>
+    );
+  }
+
+  if (!authSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+        <section className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <p className="text-xs font-semibold tracking-[0.2em] text-primary">NEXORA FINANCE</p>
+          <h1 className="mt-3 text-2xl font-semibold text-foreground">
+            {authMode === "signin" ? "Entre na sua conta" : "Crie sua conta"}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Sua conexão bancária ficará vinculada à sua própria conta.
+          </p>
+          {getSupabaseBrowserConfigError() && (
+            <p className="mt-4 rounded-lg border border-border p-3 text-sm text-muted-foreground">
+              {getSupabaseBrowserConfigError()}
+            </p>
+          )}
+          {authError && (
+            <p className="mt-4 rounded-lg border border-border p-3 text-sm" role="alert">
+              {authError}
+            </p>
+          )}
+          <form
+            className="mt-6 grid gap-4"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!supabase) {
+                setAuthError(getSupabaseBrowserConfigError() ?? "Supabase não está configurado.");
+                return;
+              }
+              setAuthBusy(true);
+              setAuthError("");
+              try {
+                if (authMode === "signup") {
+                  const { data, error } = await supabase.auth.signUp({
+                    email: authEmail.trim(),
+                    password: authPassword,
+                  });
+                  if (error) throw error;
+                  if (!data.session) {
+                    setAuthError("Conta criada. Confirme seu e-mail e depois entre.");
+                  }
+                } else {
+                  const { error } = await supabase.auth.signInWithPassword({
+                    email: authEmail.trim(),
+                    password: authPassword,
+                  });
+                  if (error) throw error;
+                }
+              } catch (cause) {
+                setAuthError(
+                  cause instanceof Error ? cause.message : "Não foi possível autenticar.",
+                );
+              } finally {
+                setAuthBusy(false);
+              }
+            }}
+          >
+            <label className="grid gap-2 text-sm font-medium text-foreground">
+              E-mail
+              <input
+                type="email"
+                autoComplete="email"
+                required
+                value={authEmail}
+                onChange={(event) => setAuthEmail(event.target.value)}
+                className="h-11 rounded-lg border border-input bg-background px-3 font-normal"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-foreground">
+              Senha
+              <input
+                type="password"
+                autoComplete={authMode === "signin" ? "current-password" : "new-password"}
+                minLength={6}
+                required
+                value={authPassword}
+                onChange={(event) => setAuthPassword(event.target.value)}
+                className="h-11 rounded-lg border border-input bg-background px-3 font-normal"
+              />
+            </label>
+            <Button type="submit" className="h-11 w-full" disabled={!supabase || authBusy}>
+              {authBusy
+                ? "Aguarde…"
+                : authMode === "signin"
+                  ? "Entrar"
+                  : "Criar conta"}
+            </Button>
+          </form>
+          <button
+            type="button"
+            className="mt-4 w-full text-sm text-muted-foreground underline underline-offset-4"
+            onClick={() => {
+              setAuthMode(authMode === "signin" ? "signup" : "signin");
+              setAuthError("");
+            }}
+          >
+            {authMode === "signin" ? "Ainda não tem conta? Criar conta" : "Já tem conta? Entrar"}
+          </button>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <div className="nexora-shell">
@@ -499,6 +666,16 @@ function Index() {
             </Button>
           </div>
           <div className="nexora-topbar-actions">
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              {authSession?.user.email}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void supabase?.auth.signOut()}
+            >
+              Sair
+            </Button>
             <span className="nexora-status" role="status" aria-live="polite">
               <span className="nexora-status-dot" />
               {pluggyLoading
@@ -645,7 +822,7 @@ function Index() {
             includeSandbox={true}
             onSuccess={({ item }: { item: { id: string } }) => {
               setPluggyToken(null);
-              void fetch("/api/pluggy-session", {
+              void authenticatedFetch("/api/pluggy-session", {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ itemId: item.id }),
