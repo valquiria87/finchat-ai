@@ -8,157 +8,283 @@ import {
 import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@^2.0.0";
 import { z } from "npm:zod@^4.3.6";
 
+const PAGE_SIZE = 1000;
+const dateSchema = z.string().date().describe("Data no formato AAAA-MM-DD.");
+const monthSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+  .describe("Mês no formato AAAA-MM.");
+
 const jsonText = (value: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(value) }],
 });
 
 function errorText(message: string) {
-  return { content: [{ type: "text" as const, text: message }], isError: true };
+  return {
+    content: [{ type: "text" as const, text: message }],
+    isError: true,
+  };
+}
+
+function money(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function monthBounds(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const start = `${month}-01`;
+  const end = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+  return { start, end };
+}
+
+// Fetch in pages to avoid silently calculating totals from only the first API page.
+async function fetchAll(query: any) {
+  const rows: any[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) return { data: rows, error: null };
+  }
 }
 
 Deno.serve(
   pipeline(
     [withOAuthProtectedResource(), withSupabase({ auth: "user" })],
     async (request, { supabase }) => {
-      const server = new McpServer({ name: "nexora-finance", version: "1.0.0" });
+      const server = new McpServer({ name: "nexora-finance", version: "1.1.0" });
 
       server.registerTool(
-        "finance_summary",
+        "listar_contas",
         {
-          title: "Resumo financeiro",
+          title: "Listar contas",
           description:
-            "Returns the signed-in user's account balances and recent income/expense totals. Read-only; data access is restricted by Supabase RLS.",
-          inputSchema: {
-            days: z.number()
-              .int()
-              .min(1)
-              .max(365)
-              .default(30)
-              .describe("Number of past days to summarize."),
-          },
-          annotations: { readOnlyHint: true },
-        },
-        async ({ days }) => {
-          const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-          const [accountsResult, transactionsResult] = await Promise.all([
-            supabase
-              .from("accounts")
-              .select("id, name, type, currency, balance, credit_limit")
-              .order("name"),
-            supabase
-              .from("transactions")
-              .select("amount, currency, date, category")
-              .gte("date", since)
-              .order("date", { ascending: false })
-              .limit(5000),
-          ]);
-
-          if (accountsResult.error || transactionsResult.error) {
-            console.error(
-              "finance_summary query failed",
-              accountsResult.error?.message,
-              transactionsResult.error?.message,
-            );
-            return errorText(
-              "Não foi possível consultar o resumo financeiro. Verifique as políticas RLS e o esquema do banco.",
-            );
-          }
-
-          const transactions = transactionsResult.data ?? [];
-          const income = transactions
-            .filter((item) => Number(item.amount) > 0)
-            .reduce((sum, item) => sum + Number(item.amount), 0);
-          const expenses = transactions
-            .filter((item) => Number(item.amount) < 0)
-            .reduce((sum, item) => sum + Math.abs(Number(item.amount)), 0);
-
-          return jsonText({
-            period_days: days,
-            accounts: accountsResult.data ?? [],
-            transaction_count: transactions.length,
-            income_total: Number(income.toFixed(2)),
-            expense_total: Number(expenses.toFixed(2)),
-            net_total: Number((income - expenses).toFixed(2)),
-            note:
-              "Totais calculados apenas sobre as transações retornadas pelo banco e visíveis ao usuário autenticado.",
-          });
-        },
-      );
-
-      server.registerTool(
-        "list_finance_accounts",
-        {
-          title: "Listar contas bancárias",
-          description:
-            "Lists bank accounts belonging to the signed-in user. Read-only.",
+            "Lista as contas bancárias e cartões do usuário autenticado. Somente leitura.",
           inputSchema: {},
           annotations: { readOnlyHint: true },
         },
         async () => {
           const { data, error } = await supabase
             .from("accounts")
-            .select("id, name, type, currency, balance, credit_limit")
-            .order("name")
-            .limit(100);
+            .select("id, item_id, pluggy_account_id, name, type, balance, currency")
+            .order("name");
 
           if (error) {
-            console.error("list_finance_accounts query failed", error.message);
-            return errorText(
-              "Não foi possível listar as contas. Verifique as políticas RLS e o esquema do banco.",
-            );
+            console.error("listar_contas query failed", error.message);
+            return errorText("Não foi possível listar contas. Verifique o esquema e as políticas RLS.");
           }
-          return jsonText(data ?? []);
+          return jsonText({ contas: data ?? [], quantidade: data?.length ?? 0 });
         },
       );
 
       server.registerTool(
-        "list_finance_transactions",
+        "saldo_total",
         {
-          title: "Consultar movimentações",
+          title: "Saldo total",
           description:
-            "Lists the signed-in user's transactions, optionally filtered by date range and category. Read-only.",
+            "Calcula os saldos agregados por moeda para as contas visíveis ao usuário autenticado. Moedas diferentes não são somadas entre si. Somente leitura.",
+          inputSchema: {},
+          annotations: { readOnlyHint: true },
+        },
+        async () => {
+          const { data, error } = await fetchAll(
+            supabase.from("accounts").select("id, name, type, balance, currency").order("name"),
+          );
+          if (error) {
+            console.error("saldo_total query failed", error.message);
+            return errorText("Não foi possível calcular os saldos. Verifique o esquema e as políticas RLS.");
+          }
+
+          const totals = new Map<string, number>();
+          for (const account of data ?? []) {
+            const currency = account.currency || "BRL";
+            totals.set(currency, (totals.get(currency) ?? 0) + Number(account.balance ?? 0));
+          }
+
+          return jsonText({
+            quantidade_contas: data?.length ?? 0,
+            saldos_por_moeda: Array.from(totals, ([moeda, total]) => ({
+              moeda,
+              saldo: money(total),
+            })),
+          });
+        },
+      );
+
+      server.registerTool(
+        "buscar_transacoes",
+        {
+          title: "Buscar transações",
+          description:
+            "Busca transações com filtros opcionais de data inicial/final, categoria, texto da descrição e limite. Datas inclusivas. Somente leitura.",
           inputSchema: {
-            start_date: z.string()
-              .date()
-              .optional()
-              .describe("Optional inclusive start date, YYYY-MM-DD."),
-            end_date: z.string()
-              .date()
-              .optional()
-              .describe("Optional inclusive end date, YYYY-MM-DD."),
-            category: z.string().trim().min(1).max(100).optional(),
-            limit: z.number().int().min(1).max(100).default(20),
+            inicio: dateSchema.optional(),
+            fim: dateSchema.optional(),
+            categoria: z.string().trim().min(1).max(100).optional(),
+            busca: z.string().trim().min(1).max(200).optional(),
+            limite: z.number().int().min(1).max(500).default(50),
           },
           annotations: { readOnlyHint: true },
         },
-        async ({ start_date, end_date, category, limit }) => {
-          if (start_date && end_date && start_date > end_date) {
+        async ({ inicio, fim, categoria, busca, limite }) => {
+          if (inicio && fim && inicio > fim) {
             return errorText("A data inicial deve ser anterior ou igual à data final.");
           }
 
           let query = supabase
             .from("transactions")
-            .select("id, account_id, date, description, amount, currency, category")
+            .select("id, account_id, pluggy_tx_id, date, description, amount, type, category")
             .order("date", { ascending: false })
-            .limit(limit);
+            .limit(limite);
 
-          if (start_date) query = query.gte("date", `${start_date}T00:00:00.000Z`);
-          if (end_date) query = query.lte("date", `${end_date}T23:59:59.999Z`);
-          if (category) query = query.ilike("category", category);
+          if (inicio) query = query.gte("date", inicio);
+          if (fim) query = query.lte("date", fim);
+          if (categoria) query = query.ilike("category", categoria);
+          if (busca) query = query.ilike("description", `%${busca.replace(/[%_]/g, "")}%`);
 
           const { data, error } = await query;
           if (error) {
-            console.error("list_finance_transactions query failed", error.message);
-            return errorText(
-              "Não foi possível consultar as movimentações. Verifique as políticas RLS e o esquema do banco.",
-            );
+            console.error("buscar_transacoes query failed", error.message);
+            return errorText("Não foi possível buscar transações. Verifique o esquema e as políticas RLS.");
           }
-          return jsonText(data ?? []);
+          return jsonText({ transacoes: data ?? [], quantidade: data?.length ?? 0, limite });
         },
       );
 
-      const handler = createMcpHandler(() => server);
-      return handler.fetch(request);
+      server.registerTool(
+        "gastos_por_categoria",
+        {
+          title: "Gastos por categoria",
+          description:
+            "Agrupa e soma os débitos por categoria no mês informado (AAAA-MM). Somente leitura.",
+          inputSchema: { mes: monthSchema },
+          annotations: { readOnlyHint: true },
+        },
+        async ({ mes }) => {
+          const { start, end } = monthBounds(mes);
+          const { data, error } = await fetchAll(
+            supabase
+              .from("transactions")
+              .select("category, amount, type, date")
+              .eq("type", "DEBITO")
+              .gte("date", start)
+              .lte("date", end),
+          );
+
+          if (error) {
+            console.error("gastos_por_categoria query failed", error.message);
+            return errorText("Não foi possível agrupar os gastos. Verifique o esquema e as políticas RLS.");
+          }
+
+          const totals = new Map<string, number>();
+          for (const transaction of data ?? []) {
+            const category = transaction.category?.trim() || "Sem categoria";
+            totals.set(category, (totals.get(category) ?? 0) + Math.abs(Number(transaction.amount ?? 0)));
+          }
+          const categorias = Array.from(totals, ([categoria, total]) => ({
+            categoria,
+            total: money(total),
+          })).sort((a, b) => b.total - a.total);
+
+          return jsonText({
+            mes,
+            total_gastos: money(categorias.reduce((sum, item) => sum + item.total, 0)),
+            quantidade_transacoes: data?.length ?? 0,
+            categorias,
+            moeda: "BRL",
+          });
+        },
+      );
+
+      server.registerTool(
+        "resumo_mensal",
+        {
+          title: "Resumo mensal",
+          description:
+            "Calcula créditos, débitos, saldo líquido e quantidade de transações no mês AAAA-MM. Somente leitura.",
+          inputSchema: { mes: monthSchema },
+          annotations: { readOnlyHint: true },
+        },
+        async ({ mes }) => {
+          const { start, end } = monthBounds(mes);
+          const { data, error } = await fetchAll(
+            supabase
+              .from("transactions")
+              .select("amount, type, date")
+              .gte("date", start)
+              .lte("date", end),
+          );
+
+          if (error) {
+            console.error("resumo_mensal query failed", error.message);
+            return errorText("Não foi possível gerar o resumo mensal. Verifique o esquema e as políticas RLS.");
+          }
+
+          let creditos = 0;
+          let debitos = 0;
+          for (const transaction of data ?? []) {
+            const amount = Math.abs(Number(transaction.amount ?? 0));
+            if (transaction.type === "CREDITO") creditos += amount;
+            if (transaction.type === "DEBITO") debitos += amount;
+          }
+
+          return jsonText({
+            mes,
+            quantidade_transacoes: data?.length ?? 0,
+            total_creditos: money(creditos),
+            total_debitos: money(debitos),
+            resultado_liquido: money(creditos - debitos),
+            moeda: "BRL",
+          });
+        },
+      );
+
+      server.registerTool(
+        "maiores_gastos",
+        {
+          title: "Maiores gastos",
+          description:
+            "Lista os maiores débitos de um período, ordenados pelo valor absoluto da transação. Somente leitura.",
+          inputSchema: {
+            inicio: dateSchema,
+            fim: dateSchema,
+            top: z.number().int().min(1).max(100).default(10),
+          },
+          annotations: { readOnlyHint: true },
+        },
+        async ({ inicio, fim, top }) => {
+          if (inicio > fim) {
+            return errorText("A data inicial deve ser anterior ou igual à data final.");
+          }
+
+          const { data, error } = await fetchAll(
+            supabase
+              .from("transactions")
+              .select("id, account_id, date, description, amount, type, category")
+              .eq("type", "DEBITO")
+              .gte("date", inicio)
+              .lte("date", fim),
+          );
+
+          if (error) {
+            console.error("maiores_gastos query failed", error.message);
+            return errorText("Não foi possível consultar os maiores gastos. Verifique o esquema e as políticas RLS.");
+          }
+
+          const gastos = (data ?? [])
+            .sort((a, b) => Math.abs(Number(b.amount ?? 0)) - Math.abs(Number(a.amount ?? 0)))
+            .slice(0, top)
+            .map((transaction) => ({
+              ...transaction,
+              amount: Math.abs(Number(transaction.amount ?? 0)),
+            }));
+
+          return jsonText({ inicio, fim, top, gastos });
+        },
+      );
+
+      return createMcpHandler(() => server).fetch(request);
     },
   ),
 );
