@@ -6,10 +6,7 @@ import {
   ownerCookie,
   sessionIdentity,
 } from "@/lib/pluggy.server";
-import {
-  requireSupabaseUser,
-  supabaseAuthErrorResponse,
-} from "@/lib/auth.server";
+import { requireSupabaseUser, supabaseAuthErrorResponse } from "@/lib/auth.server";
 
 export const Route = createFileRoute("/api/pluggy-data")({
   server: {
