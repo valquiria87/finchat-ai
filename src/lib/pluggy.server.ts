@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 const API = "https://api.pluggy.ai";
 const COOKIE = "finchat_pluggy_item";
 const OWNER_COOKIE = "finchat_owner";
@@ -44,16 +46,60 @@ async function apiKey() {
   return body.apiKey;
 }
 
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const MAX_GET_RETRIES = 2;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Retries only idempotent GETs on rate limits and transient upstream failures. */
 export async function pluggyFetch(path: string, init?: RequestInit) {
-  const key = await apiKey();
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    headers: { "X-API-KEY": key, ...(init?.headers ?? {}) },
-  });
-  if (!response.ok) {
-    throw new PluggyError("Não foi possível consultar os dados da instituição.", response.status);
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    throw new PluggyError("Caminho da API Pluggy inválido.");
   }
-  return response;
+
+  const key = await apiKey();
+  const method = (init?.method ?? "GET").toUpperCase();
+  const retryable = method === "GET";
+  let response: Response | undefined;
+
+  for (let attempt = 0; attempt <= (retryable ? MAX_GET_RETRIES : 0); attempt++) {
+    response = await fetch(`${API}${path}`, {
+      ...init,
+      headers: { "X-API-KEY": key, ...(init?.headers ?? {}) },
+    });
+
+    if (response.ok) return response;
+    if (!retryable || !RETRYABLE_STATUS.has(response.status) || attempt === MAX_GET_RETRIES) break;
+
+    const retryAfter = Number(response.headers.get("retry-after"));
+    const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? Math.min(retryAfter * 1000, 2000)
+      : 250 * 2 ** attempt;
+
+    console.warn(JSON.stringify({
+      level: "warn",
+      service: "pluggy-client",
+      operation: "http_request",
+      method,
+      status: response.status,
+      attempt: attempt + 1,
+      retryInMs: delayMs,
+    }));
+    await sleep(delayMs);
+  }
+
+  console.error(JSON.stringify({
+    level: "error",
+    service: "pluggy-client",
+    operation: "http_request",
+    method,
+    status: response?.status ?? 0,
+    retryable,
+    outcome: "failed",
+  }));
+  throw new PluggyError("Não foi possível consultar os dados da instituição.", response?.status);
 }
 
 function sessionSecret() {
@@ -312,11 +358,15 @@ export async function fetchPluggyItem(itemId: string): Promise<PluggyItemDetails
   return (await response.json()) as PluggyItemDetails;
 }
 
-function logSafeWebhookEvent(event: string, eventId: string, itemId?: string, detail?: string) {
-  const detailStr = detail ? ` · ${detail}` : "";
-  console.info(
-    `[Pluggy Webhook] Evento: ${event} · ID: ${eventId} · Item: ${itemId ?? "n/a"}${detailStr}`,
-  );
+function logSafeWebhookEvent(event: string, eventId: string, _itemId?: string, detail?: string) {
+  console.info(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: "info",
+    service: "pluggy-webhook",
+    event,
+    eventId,
+    outcome: detail ?? "accepted",
+  }));
 }
 
 export type PluggyWebhookPayload = {
@@ -346,31 +396,37 @@ export async function handlePluggyWebhook(
     return Response.json({ error: "JSON do webhook malformado." }, { status: 400 });
   }
 
-  if (!body || typeof body !== "object") {
+  const payloadSchema = z.object({
+    event: z.string().trim().min(1).max(120),
+    eventId: z.string().regex(/^[\w-]{1,100}$/),
+    itemId: z.string().regex(/^[\w-]{1,100}$/).optional(),
+    clientUserId: z.unknown().optional(),
+    triggeredBy: z.unknown().optional(),
+    error: z.object({
+      code: z.unknown().optional(),
+      message: z.unknown().optional(),
+    }).nullable().optional(),
+  }).passthrough();
+  const parsed = payloadSchema.safeParse(body);
+  if (!parsed.success) {
+    console.warn(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "warn",
+      service: "pluggy-webhook",
+      operation: "validate_payload",
+      outcome: "rejected",
+      issueCount: parsed.error.issues.length,
+    }));
     return Response.json(
-      { error: "Payload do webhook inválido: esperado um objeto JSON." },
+      { error: "Payload inválido: verifique event, eventId e itemId." },
       { status: 400 },
     );
   }
 
-  const payload = body as PluggyWebhookPayload;
-  const event = payload.event;
-  const eventId = payload.eventId;
+  const payload = parsed.data as PluggyWebhookPayload;
+  const event = payload.event as string;
+  const eventId = payload.eventId as string;
   const itemId = payload.itemId;
-
-  if (typeof event !== "string" || !event.trim()) {
-    return Response.json(
-      { error: "Payload inválido: campo 'event' ausente ou inválido." },
-      { status: 400 },
-    );
-  }
-
-  if (typeof eventId !== "string" || !/^[\w-]{1,100}$/.test(eventId)) {
-    return Response.json(
-      { error: "Payload inválido: campo 'eventId' ausente ou formato inválido." },
-      { status: 400 },
-    );
-  }
 
   const isItemEvent =
     event === "item/created" ||
