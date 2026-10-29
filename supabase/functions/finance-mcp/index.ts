@@ -1,10 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 import { pipeline } from "npm:@supabase/middleware@1";
-import {
-  withOAuthProtectedResource,
-  withSupabase,
-} from "npm:@supabase/server@1";
+import { withOAuthProtectedResource, withSupabase } from "npm:@supabase/server@1";
 import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@^2.0.0";
 import { z } from "npm:zod@^4.3.6";
 
@@ -100,10 +97,7 @@ Deno.serve(
         },
         async () => {
           const { data, error } = await fetchAll(
-            supabase
-              .from("accounts")
-              .select("id, name, type, balance, currency")
-              .order("name"),
+            supabase.from("accounts").select("id, name, type, balance, currency").order("name"),
           );
           if (error) {
             console.error("saldo_total query failed", error.message);
