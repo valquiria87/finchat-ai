@@ -15,6 +15,15 @@ const monthSchema = z
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
   .describe("Mês no formato AAAA-MM.");
 
+type PageResult<T> = {
+  data: T[] | null;
+  error: { message: string } | null;
+};
+
+type PageQuery<T> = {
+  range(from: number, to: number): PromiseLike<PageResult<T>>;
+};
+
 const jsonText = (value: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(value) }],
 });
@@ -37,9 +46,9 @@ function monthBounds(month: string) {
   return { start, end };
 }
 
-// Fetch in pages to avoid silently calculating totals from only the first API page.
-async function fetchAll(query: any) {
-  const rows: any[] = [];
+// Fetch in pages to avoid calculating totals from only the first API page.
+async function fetchAll<T>(query: PageQuery<T>) {
+  const rows: T[] = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
     if (error) return { data: null, error };
@@ -72,7 +81,9 @@ Deno.serve(
 
           if (error) {
             console.error("listar_contas query failed", error.message);
-            return errorText("Não foi possível listar contas. Verifique o esquema e as políticas RLS.");
+            return errorText(
+              "Não foi possível listar contas. Verifique o esquema e as políticas RLS.",
+            );
           }
           return jsonText({ contas: data ?? [], quantidade: data?.length ?? 0 });
         },
@@ -89,11 +100,16 @@ Deno.serve(
         },
         async () => {
           const { data, error } = await fetchAll(
-            supabase.from("accounts").select("id, name, type, balance, currency").order("name"),
+            supabase
+              .from("accounts")
+              .select("id, name, type, balance, currency")
+              .order("name"),
           );
           if (error) {
             console.error("saldo_total query failed", error.message);
-            return errorText("Não foi possível calcular os saldos. Verifique o esquema e as políticas RLS.");
+            return errorText(
+              "Não foi possível calcular os saldos. Verifique o esquema e as políticas RLS.",
+            );
           }
 
           const totals = new Map<string, number>();
@@ -146,7 +162,9 @@ Deno.serve(
           const { data, error } = await query;
           if (error) {
             console.error("buscar_transacoes query failed", error.message);
-            return errorText("Não foi possível buscar transações. Verifique o esquema e as políticas RLS.");
+            return errorText(
+              "Não foi possível buscar transações. Verifique o esquema e as políticas RLS.",
+            );
           }
           return jsonText({ transacoes: data ?? [], quantidade: data?.length ?? 0, limite });
         },
@@ -174,13 +192,18 @@ Deno.serve(
 
           if (error) {
             console.error("gastos_por_categoria query failed", error.message);
-            return errorText("Não foi possível agrupar os gastos. Verifique o esquema e as políticas RLS.");
+            return errorText(
+              "Não foi possível agrupar os gastos. Verifique o esquema e as políticas RLS.",
+            );
           }
 
           const totals = new Map<string, number>();
           for (const transaction of data ?? []) {
             const category = transaction.category?.trim() || "Sem categoria";
-            totals.set(category, (totals.get(category) ?? 0) + Math.abs(Number(transaction.amount ?? 0)));
+            totals.set(
+              category,
+              (totals.get(category) ?? 0) + Math.abs(Number(transaction.amount ?? 0)),
+            );
           }
           const categorias = Array.from(totals, ([categoria, total]) => ({
             categoria,
@@ -218,7 +241,9 @@ Deno.serve(
 
           if (error) {
             console.error("resumo_mensal query failed", error.message);
-            return errorText("Não foi possível gerar o resumo mensal. Verifique o esquema e as políticas RLS.");
+            return errorText(
+              "Não foi possível gerar o resumo mensal. Verifique o esquema e as políticas RLS.",
+            );
           }
 
           let creditos = 0;
@@ -269,7 +294,9 @@ Deno.serve(
 
           if (error) {
             console.error("maiores_gastos query failed", error.message);
-            return errorText("Não foi possível consultar os maiores gastos. Verifique o esquema e as políticas RLS.");
+            return errorText(
+              "Não foi possível consultar os maiores gastos. Verifique o esquema e as políticas RLS.",
+            );
           }
 
           const gastos = (data ?? [])
