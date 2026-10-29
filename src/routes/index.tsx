@@ -90,18 +90,20 @@ function Index() {
 
   useEffect(() => {
     let active = true;
-    void import("@/lib/supabase-browser").then((module) => {
-      if (!active) return;
-      setSupabaseConfigError(module.getSupabaseBrowserConfigError());
-      const client = module.getSupabaseBrowserClient();
-      setSupabase(client);
-      if (!client) setAuthReady(true);
-    }).catch(() => {
-      if (active) {
-        setSupabaseConfigError("Não foi possível inicializar o Supabase no navegador.");
-        setAuthReady(true);
-      }
-    });
+    void import("@/lib/supabase-browser")
+      .then((module) => {
+        if (!active) return;
+        setSupabaseConfigError(module.getSupabaseBrowserConfigError());
+        const client = module.getSupabaseBrowserClient();
+        setSupabase(client);
+        if (!client) setAuthReady(true);
+      })
+      .catch(() => {
+        if (active) {
+          setSupabaseConfigError("Não foi possível inicializar o Supabase no navegador.");
+          setAuthReady(true);
+        }
+      });
     return () => {
       active = false;
     };
@@ -110,15 +112,20 @@ function Index() {
   useEffect(() => {
     if (!supabase) return;
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (active) {
-        setAuthSession(data.session);
-        setAuthReady(true);
-      }
-    }).catch(() => {
-      if (active) setAuthReady(true);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (active) {
+          setAuthSession(data.session);
+          setAuthReady(true);
+        }
+      })
+      .catch(() => {
+        if (active) setAuthReady(true);
+      });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (active) {
         setAuthSession(session);
         setAuthReady(true);
@@ -524,11 +531,7 @@ function Index() {
               />
             </label>
             <Button type="submit" className="h-11 w-full" disabled={!supabase || authBusy}>
-              {authBusy
-                ? "Aguarde…"
-                : authMode === "signin"
-                  ? "Entrar"
-                  : "Criar conta"}
+              {authBusy ? "Aguarde…" : authMode === "signin" ? "Entrar" : "Criar conta"}
             </Button>
           </form>
           <button
@@ -722,11 +725,7 @@ function Index() {
             <span className="hidden text-xs text-muted-foreground sm:inline">
               {authSession?.user.email}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void supabase?.auth.signOut()}
-            >
+            <Button variant="outline" size="sm" onClick={() => void supabase?.auth.signOut()}>
               Sair
             </Button>
             <span className="nexora-status" role="status" aria-live="polite">
