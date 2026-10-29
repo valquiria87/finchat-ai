@@ -5,10 +5,7 @@ import {
   pluggyTokenConfigError,
   PluggyError,
 } from "@/lib/pluggy.server";
-import {
-  requireSupabaseUser,
-  supabaseAuthErrorResponse,
-} from "@/lib/auth.server";
+import { requireSupabaseUser, supabaseAuthErrorResponse } from "@/lib/auth.server";
 
 export const Route = createFileRoute("/api/pluggy-token")({
   server: {
@@ -36,10 +33,7 @@ export const Route = createFileRoute("/api/pluggy-token")({
             body: JSON.stringify({ clientId, clientSecret }),
           });
           if (!authResponse.ok) {
-            return Response.json(
-              { error: "A autenticação com a Pluggy falhou." },
-              { status: 502 },
-            );
+            return Response.json({ error: "A autenticação com a Pluggy falhou." }, { status: 502 });
           }
 
           const authData = (await authResponse.json()) as { apiKey?: string };
