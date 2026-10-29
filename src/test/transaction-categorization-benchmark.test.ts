@@ -184,7 +184,7 @@ describe("benchmark sintético de categorização de transações", () => {
     );
     expect(dataset).toHaveLength(100);
     expect(new Set(dataset.map((sample) => sample.description)).size).toBe(100);
-    expect(accuracy).toBe(0.88);
-    expect(perCategory.reduce((sum, metric) => sum + metric.correct, 0)).toBe(88);
+    expect(accuracy).toBe(0.9);
+    expect(perCategory.every((metric) => metric.count === 10 && metric.correct === 9)).toBe(true);
   });
 });
